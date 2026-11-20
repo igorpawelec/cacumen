@@ -1,6 +1,6 @@
 # pycacumen
 
-<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/pycacumen.png" alt="pycacumen logo" align="right" width="200"/>
+<img src="../logo/cacumen-mark.svg" alt="cacumen mark: four tree crowns seen from above, two of them grown into one, each marked by its tree top" align="right" width="110"/>
 
 [![python-tests](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml)
 [![Release](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=python-v*&label=release)](https://github.com/igorpawelec/cacumen/releases)

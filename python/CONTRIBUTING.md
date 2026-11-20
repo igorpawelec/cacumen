@@ -74,7 +74,7 @@ change was meant to do. The matrix is the part that disagrees.
    `gh run list` is nicer if the GitHub CLI is installed; it is not
    everywhere, and the curl form needs nothing but a public repo.
 6. Only then tag and push the tag:
-   `git tag -a vX.Y.Z -m "..." && git push --tags`
+   `git tag -a python-vX.Y.Z -m "..." && git push --tags` (tags carry the package prefix: `python-v` here, `r-v` for rcacumen)
 
 The order matters. A tag is what people install and what a DOI points at, so
 it should never be the thing that discovers a broken build. If Actions is

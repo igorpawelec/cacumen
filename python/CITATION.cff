@@ -12,7 +12,7 @@ type: software
 version: "0.6.1"
 date-released: "2026-11-06"
 license: "GPL-3.0-or-later"
-repository-code: "https://github.com/igorpawelec/pycacumen"
+repository-code: "https://github.com/igorpawelec/cacumen"
 authors:
   - family-names: Pawelec
     given-names: Igor

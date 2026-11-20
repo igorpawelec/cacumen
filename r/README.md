@@ -1,9 +1,9 @@
 # rcacumen
 
-<img src="https://raw.githubusercontent.com/igorpawelec/rcacumen/main/www/rcacumen.png" alt="rcacumen logo" align="right" width="200"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/rcacumen.png" alt="rcacumen logo" align="right" width="200"/>
 
-[![R-CMD-check](https://github.com/igorpawelec/rcacumen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/igorpawelec/rcacumen/actions/workflows/R-CMD-check.yaml)
-[![Release](https://img.shields.io/github/v/release/igorpawelec/rcacumen)](https://github.com/igorpawelec/rcacumen/releases)
+[![R-CMD-check](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml)
+[![Release](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=r-v*&label=release)](https://github.com/igorpawelec/cacumen/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![R](https://img.shields.io/badge/R-%3E%3D%203.6-blue.svg)](https://www.r-project.org)
 
@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a raster of ids and as polygons. R and plain C — no Rcpp, no compiled dependencies, and `terra` only if you want to read and write files.
 
-> **Python users:** the same algorithm is in [pycacumen](https://github.com/igorpawelec/pycacumen). The two are separate repositories because their tooling and idioms do not mix — but they are not merely similar. On the shared synthetic test suite they produce **identical output, pixel for pixel**. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
+> **Python users:** the same algorithm is in [`python/`](../python), the pycacumen package. The two packages share this repository, and they are not merely similar. On the shared synthetic test suite they produce **identical output, pixel for pixel**. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
 
 ## The problem it solves
 
@@ -24,7 +24,7 @@ rcacumen does not try to get the tops right first. It accepts the surplus and co
 3. **Growing.** Each tree grows greedily, absorbing neighbours while the combined height variance stays under a threshold. When two trees absorb each other, they were one crown — this is where over-detection is undone.
 4. **Arbitration.** Growing runs independently per seed, so two crowns can claim the same region. The claim is settled on the data — the taller tree, the nearer tree, or the better height match — never on iteration order, so the result does not depend on how the tops were sorted.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/rcacumen/main/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
 
 *A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 213 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 212 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.R`, from this package.*
 
@@ -32,7 +32,7 @@ rcacumen does not try to get the tops right first. It accepts the surplus and co
 
 `variance_thresh` is the height variance (σ², in m²) a single crown may contain. It sets how readily a tree absorbs its neighbours, and therefore how many of the surplus tops are merged back. Everything else has a sensible default; this one you choose per stand.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/rcacumen/main/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 202 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 202 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
 
 *The same 213 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 11 and 90 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them. pycacumen's README shows the same tile from Python: identical at 2 and 20, one crown apart at 8 (203 against 202) — the watershed tie-breaking measured [below](#agreement-with-pycacumen), at work.*
 
@@ -59,7 +59,7 @@ rcacumen is one step of a longer chain; the other steps are separate packages, e
 |---|---|---|
 | Colour-space conversion of orthophotos | [rgeopalette](https://github.com/igorpawelec/rgeopalette) | [pygeopalette](https://github.com/igorpawelec/pygeopalette) |
 | Adaptive superpixels and seeded growing on orthophotos | [rgeoadaptels](https://github.com/igorpawelec/rgeoadaptels) | [pygeoadaptels](https://github.com/igorpawelec/pygeoadaptels) |
-| Crowns from a canopy height model | **rcacumen** | [pycacumen](https://github.com/igorpawelec/pycacumen) |
+| Crowns from a canopy height model | **rcacumen** | [pycacumen](../python) |
 | Standing dead trees on orthophotos | — | [pygeosnag](https://github.com/igorpawelec/pygeosnag) |
 | The same, inside QGIS | | [qgis-geoadaptels-geopalette](https://github.com/igorpawelec/qgis-geoadaptels-geopalette), [qgis-geosnag](https://github.com/igorpawelec/qgis-geosnag) |
 | Polish national geodata (GUGiK, BDL) | [rgeopl](https://github.com/igorpawelec/rgeopl) | — |
@@ -68,7 +68,7 @@ rcacumen is one step of a longer chain; the other steps are separate packages, e
 
 ```r
 # install.packages("remotes")
-remotes::install_github("igorpawelec/rcacumen")
+remotes::install_github("igorpawelec/cacumen", subdir = "r")
 ```
 
 A C compiler is needed, which R already requires on Linux and macOS; on Windows install [Rtools](https://cran.r-project.org/bin/windows/Rtools/).
@@ -163,7 +163,7 @@ Two implementations of one method are only useful if they agree, so this is meas
 Reproduce it yourself:
 
 ```bash
-pip install pycacumen
+pip install ../python          # pycacumen from this checkout
 python3 tools/generate_pycacumen_reference.py
 Rscript tools/cross_validate_against_pycacumen.R
 ```
@@ -216,9 +216,9 @@ The practical consequence: **a tree count from this method carries an implementa
 <summary><b>Testing and the figures</b></summary>
 
 ```r
-remotes::install_github("igorpawelec/rcacumen")
+remotes::install_github("igorpawelec/cacumen", subdir = "r")
 # or, from a clone:
-#   R CMD build rcacumen && R CMD check rcacumen_0.5.0.tar.gz
+#   R CMD build r && R CMD check rcacumen_0.5.0.tar.gz
 ```
 
 The README figures are remade with `Rscript www/figures.R` from the tile in `test_data/`, using the package in the checkout (`pkgload`) rather than an installed copy.
@@ -229,7 +229,7 @@ The README figures are remade with `Rscript www/figures.R` from the tile in `tes
 
 If you use rcacumen in your research, please cite the software and the work it builds on:
 
-> Pawelec, I. (2026). *rcacumen: individual tree crown delineation from canopy height models by Hierarchical Region Growing* [R package]. https://github.com/igorpawelec/rcacumen
+> Pawelec, I. (2026). *rcacumen: individual tree crown delineation from canopy height models by Hierarchical Region Growing* [R package]. https://github.com/igorpawelec/cacumen
 
 Machine-readable metadata, including everything cited below, is in [`CITATION.cff`](CITATION.cff).
 

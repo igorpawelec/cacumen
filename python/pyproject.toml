@@ -58,10 +58,10 @@ dev = ["pytest>=7.0", "affine", "pyflakes", "build"]
 all = ["rasterio>=1.3", "fiona>=1.9"]
 
 [project.urls]
-Homepage = "https://github.com/igorpawelec/pycacumen"
-Repository = "https://github.com/igorpawelec/pycacumen"
-Issues = "https://github.com/igorpawelec/pycacumen/issues"
-Changelog = "https://github.com/igorpawelec/pycacumen/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/igorpawelec/cacumen"
+Repository = "https://github.com/igorpawelec/cacumen"
+Issues = "https://github.com/igorpawelec/cacumen/issues"
+Changelog = "https://github.com/igorpawelec/cacumen/blob/main/python/CHANGELOG.md"
 
 [project.scripts]
 pycacumen = "pycacumen.cli:main"

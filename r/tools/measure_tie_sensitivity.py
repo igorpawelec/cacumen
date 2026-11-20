@@ -24,7 +24,8 @@ import rasterio
 from pycacumen import (smooth_chm, detect_tops, as_pixels,
                    HierarchicalRegionGrower)
 
-SRC = os.environ.get("CHM_DIR", r"D:\Apps\pycacumen\test_data")
+SRC = os.environ.get("CHM_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                             "..", "..", "python", "test_data"))
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 8
 EPS = 1e-9
 

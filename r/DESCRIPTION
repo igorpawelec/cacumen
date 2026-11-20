@@ -26,8 +26,8 @@ Encoding: UTF-8
 Depends: R (>= 3.6.0)
 Imports: stats
 Suggests: terra
-URL: https://github.com/igorpawelec/rcacumen
-BugReports: https://github.com/igorpawelec/rcacumen/issues
+URL: https://github.com/igorpawelec/cacumen
+BugReports: https://github.com/igorpawelec/cacumen/issues
 NeedsCompilation: yes
 Config/roxygen2/version: 8.0.0
 Roxygen: list(markdown = TRUE)

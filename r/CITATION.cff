@@ -8,7 +8,7 @@ authors:
     affiliation: "University of Agriculture in Kraków, Poland"
     email: igor.pawelec@urk.edu.pl
     orcid: "https://orcid.org/0009-0005-9798-3596"
-repository-code: "https://github.com/igorpawelec/rcacumen"
+repository-code: "https://github.com/igorpawelec/cacumen"
 license: GPL-3.0-or-later
 version: "0.5.0"
 date-released: "2026-08-24"
@@ -85,7 +85,7 @@ references:
     authors:
       - family-names: Pawelec
         given-names: Igor
-    url: "https://github.com/igorpawelec/pycacumen"
+    url: "https://github.com/igorpawelec/cacumen/tree/main/python"
     notes: >-
       Results match pixel for pixel on the shared synthetic test suite, and
       closely but not exactly on canopy height models containing plateaus,

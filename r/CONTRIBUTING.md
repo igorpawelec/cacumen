@@ -2,7 +2,7 @@
 
 rcacumen delineates tree crowns from a canopy height model by hierarchical
 region growing. It is the R twin of
-[pycacumen](https://github.com/igorpawelec/pycacumen); the two are developed together
+[pycacumen](../python) in the same repository; the two are developed together
 and are meant to agree.
 
 Bug reports, ideas and pull requests are all welcome.
@@ -61,7 +61,7 @@ come from. The only part `R CMD check` notices is argument defaults, via
 ## Agreement with pycacumen
 
 ```bash
-python3 tools/generate_pycacumen_reference.py     # needs pycacumen installed
+python3 tools/generate_pycacumen_reference.py     # needs pycacumen: pip install ../python
 Rscript tools/cross_validate_against_pycacumen.R
 ```
 
@@ -126,7 +126,7 @@ was meant to do. The matrix is the part that disagrees.
    This is the step that was missing. Either open the Actions tab, or:
 
    ```bash
-   curl -s "https://api.github.com/repos/igorpawelec/rcacumen/actions/runs?per_page=1" | python -c "import json,sys; r=json.load(sys.stdin)['workflow_runs'][0]; print(r['head_sha'][:7], r['status'], r['conclusion'])"
+   curl -s "https://api.github.com/repos/igorpawelec/cacumen/actions/runs?per_page=1" | python -c "import json,sys; r=json.load(sys.stdin)['workflow_runs'][0]; print(r['head_sha'][:7], r['status'], r['conclusion'])"
    ```
 
    `gh run list` is nicer if the GitHub CLI is installed; it is not

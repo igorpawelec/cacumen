@@ -1,9 +1,9 @@
 # pycacumen
 
-<img src="https://raw.githubusercontent.com/igorpawelec/pycacumen/main/www/pycacumen.png" alt="pycacumen logo" align="right" width="200"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/pycacumen.png" alt="pycacumen logo" align="right" width="200"/>
 
-[![tests](https://github.com/igorpawelec/pycacumen/actions/workflows/tests.yml/badge.svg)](https://github.com/igorpawelec/pycacumen/actions/workflows/tests.yml)
-[![Release](https://img.shields.io/github/v/release/igorpawelec/pycacumen)](https://github.com/igorpawelec/pycacumen/releases)
+[![python-tests](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml)
+[![Release](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=python-v*&label=release)](https://github.com/igorpawelec/cacumen/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org)
 
@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a label raster and as polygons. Pure Python + Numba, no compiled extensions, no external binaries.
 
-> **R users:** the same algorithm lives in [rcacumen](https://github.com/igorpawelec/rcacumen). The two are separate packages by design — installation, tooling and idioms differ too much to share a repository — and are validated against each other: exactly on the shared synthetic suite, and to within 0.25 % of watershed pixels on real canopy height models, where the two break plateau ties differently.
+> **R users:** the same algorithm is in [`r/`](../r), the rcacumen package. The two packages share this repository and are validated against each other whenever either changes: exactly on the shared synthetic suite, and to within 0.25 % of watershed pixels on real canopy height models, where the two break plateau ties differently.
 
 ## The problem it solves
 
@@ -24,7 +24,7 @@ pycacumen does not try to get the tops right first. It accepts the surplus and c
 3. **Growing.** Each tree grows greedily, absorbing neighbours while the combined height variance stays under a threshold. When two trees absorb each other, they were one crown — this is where over-detection is undone.
 4. **Arbitration.** Growing runs independently per seed, so two crowns can claim the same region. The claim is settled on the data — the taller tree, the nearer tree, or the better height match — never on iteration order, so the result does not depend on how the tops were sorted.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/pycacumen/main/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
 
 *A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 213 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 212 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.py`.*
 
@@ -32,7 +32,7 @@ pycacumen does not try to get the tops right first. It accepts the surplus and c
 
 `variance_thresh` is the height variance (σ², in m²) a single crown may contain. It sets how readily a tree absorbs its neighbours, and therefore how many of the surplus tops are merged back. Everything else has a sensible default; this one you choose per stand.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/pycacumen/main/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 203 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 203 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
 
 *The same 213 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 10 and 90 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them.*
 
@@ -66,7 +66,7 @@ pycacumen is one step of a longer chain; the other steps are separate packages, 
 |---|---|---|
 | Colour-space conversion of orthophotos | [pygeopalette](https://github.com/igorpawelec/pygeopalette) | [rgeopalette](https://github.com/igorpawelec/rgeopalette) |
 | Adaptive superpixels and seeded growing on orthophotos | [pygeoadaptels](https://github.com/igorpawelec/pygeoadaptels) | [rgeoadaptels](https://github.com/igorpawelec/rgeoadaptels) |
-| Crowns from a canopy height model | **pycacumen** | [rcacumen](https://github.com/igorpawelec/rcacumen) |
+| Crowns from a canopy height model | **pycacumen** | [rcacumen](../r) |
 | Standing dead trees on orthophotos | [pygeosnag](https://github.com/igorpawelec/pygeosnag) | — |
 | The same, inside QGIS | [qgis-geoadaptels-geopalette](https://github.com/igorpawelec/qgis-geoadaptels-geopalette), [qgis-geosnag](https://github.com/igorpawelec/qgis-geosnag) | |
 | Polish national geodata (GUGiK, BDL) | — | [rgeopl](https://github.com/igorpawelec/rgeopl) |
@@ -77,7 +77,7 @@ Native dependencies come from conda; pip then installs the package without touch
 
 ```bash
 conda install -c conda-forge numpy numba scipy scikit-image rasterio fiona
-pip install --no-deps git+https://github.com/igorpawelec/pycacumen.git
+pip install --no-deps "git+https://github.com/igorpawelec/cacumen.git#subdirectory=python"
 ```
 
 The algorithm itself needs only numpy, numba, scipy and scikit-image. `rasterio` and `fiona` are used solely for reading and writing files — the array API works without them.
@@ -241,7 +241,7 @@ If you use pycacumen in your research, please cite the software and the work it 
 
 **This implementation**
 
-> Pawelec, I. (2026). *pycacumen: individual tree crown delineation from canopy height models by Hierarchical Region Growing* [Software]. https://github.com/igorpawelec/pycacumen
+> Pawelec, I. (2026). *pycacumen: individual tree crown delineation from canopy height models by Hierarchical Region Growing* [Software]. https://github.com/igorpawelec/cacumen
 
 **Upstream project.** pycacumen is a derivative of PyCrown and keeps its pipeline structure:
 

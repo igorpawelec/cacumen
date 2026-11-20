@@ -1,6 +1,6 @@
-# cacumen
+<img src="logo/cacumen-mark.svg" align="right" width="110" alt="cacumen mark: four tree crowns seen from above, two of them grown into one, each marked by its tree top"/>
 
-<img src="python/www/pycacumen.png" alt="cacumen logo" align="right" width="200"/>
+# cacumen
 
 [![python-tests](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml)
 [![R-CMD-check](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml)
@@ -17,6 +17,8 @@ A canopy height model goes in; a crown per tree comes out, as a label raster and
 | R | [`rcacumen`](r/) | ![latest r tag](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=r-v*&label=) | `remotes::install_github("igorpawelec/cacumen", subdir = "r")` |
 
 The two are checked against each other whenever either changes ([parity workflow](.github/workflows/parity.yml)). On the shared synthetic test suite they produce identical output, pixel for pixel. On real canopy height models they agree to within 0.25 % of watershed pixels, because the two watershed implementations break plateau ties differently.
+
+**Authors:** Igor Pawelec, University of Agriculture in Kraków. **License:** GPL-3.0.
 
 ## The problem it solves
 

@@ -57,12 +57,12 @@ rcacumen is one step of a longer chain; the other steps are separate packages, e
 
 | Step | R | Python |
 |---|---|---|
-| Colour-space conversion of orthophotos | [rgeopalette](https://github.com/igorpawelec/rgeopalette) | [pygeopalette](https://github.com/igorpawelec/pygeopalette) |
-| Adaptive superpixels and seeded growing on orthophotos | [rgeoadaptels](https://github.com/igorpawelec/rgeoadaptels) | [pygeoadaptels](https://github.com/igorpawelec/pygeoadaptels) |
+| Colour-space conversion of orthophotos | [rgeopalette](https://github.com/igorpawelec/geopalette) | [pygeopalette](https://github.com/igorpawelec/geopalette) |
+| Adaptive superpixels and seeded growing on orthophotos | [rgeoadaptels](https://github.com/igorpawelec/geosegments) | [pygeoadaptels](https://github.com/igorpawelec/geosegments) |
 | Crowns from a canopy height model | **rcacumen** | [pycacumen](../python) |
-| Standing dead trees on orthophotos | — | [pygeosnag](https://github.com/igorpawelec/pygeosnag) |
-| The same, inside QGIS | | [qgis-geoadaptels-geopalette](https://github.com/igorpawelec/qgis-geoadaptels-geopalette), [qgis-geosnag](https://github.com/igorpawelec/qgis-geosnag) |
-| Polish national geodata (GUGiK, BDL) | [rgeopl](https://github.com/igorpawelec/rgeopl) | — |
+| Standing dead trees on orthophotos | — | [pygeosnag](https://github.com/igorpawelec/geosnag) |
+| The same, inside QGIS | | [qgis-geoadaptels-geopalette](https://github.com/igorpawelec/geosegments), [qgis-geosnag](https://github.com/igorpawelec/geosnag) |
+| Polish national geodata (GUGiK, BDL) | [rgeopl](https://github.com/igorpawelec/geopl) | — |
 
 ## Installation
 

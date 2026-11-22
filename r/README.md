@@ -218,7 +218,7 @@ The practical consequence: **a tree count from this method carries an implementa
 ```r
 remotes::install_github("igorpawelec/cacumen", subdir = "r")
 # or, from a clone:
-#   R CMD build r && R CMD check rcacumen_0.5.0.tar.gz
+#   R CMD build r && R CMD check rcacumen_0.5.1.tar.gz
 ```
 
 The README figures are remade with `Rscript www/figures.R` from the tile in `test_data/`, using the package in the checkout (`pkgload`) rather than an installed copy.

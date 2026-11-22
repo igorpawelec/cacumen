@@ -1,4 +1,48 @@
-# rcacumen 0.4.0
+# rcacumen 0.5.1
+
+## Fixed
+
+* **`delineate()` stopped with "missing value where TRUE/FALSE needed" on a
+  CHM with holes.** With `merge_distance` and `screen_hmin` both set, as in the
+  README's quick start, a merged top could land on a cell with no data:
+  `merge_tops()` puts the centroid of a group wherever it falls. `screen_tops()`
+  compared that cell with `hmin`, got `NA`, and an `NA` in a logical index
+  keeps the row as `(NA, NA)` instead of dropping it; `grow_crowns()` then
+  stopped on it. Two of the seven real CHMs in `test_data` did this
+  (`chm_150_2023.tif`, `chm_33_2012.tif`). Such a top is now dropped, which is
+  what pycacumen does, because `NaN >= x` is false there. That is agreement,
+  not a good answer: the tops merged into it are gone with it, and in both
+  packages the trees they marked get no crown. One merged top goes this way
+  on each of the two tiles.
+
+  On the seven tiles the two packages now find the same number of tops and
+  of crowns: 152, 212, 214, 386, 39, 165 and 145 crowns.
+
+  `tools/quick_start_on_test_tiles.R` runs the README's call on every tile
+  of the repository and holds the number of tops against pycacumen's, and
+  the parity workflow runs it. The synthetic suite never called
+  `merge_tops()` or `screen_tops()`, which is how a documented call could
+  fail on documented data.
+
+* `screen_tops()` refuses an `hmin` that is `NA` instead of returning rows
+  of `NA`, and drops a top whose own coordinate is `NA`.
+
+## Changed
+
+* `?read_chm` said nodata is left as it is. It is not: cells the file
+  declares as nodata arrive as `NA`, as terra has always read them. The page
+  now says so, says that smoothing gives the rim of a hole a height, and
+  says what happens to a nodata value the file does not declare.
+  `?smooth_chm` still said `NA` spreads; it has been skipped since 0.4.0.
+
+* The README's quick start ended in `plot(crowns_to_polygons(res$crowns))`,
+  which fails with only rcacumen attached, because `plot` for a `SpatVector`
+  is terra's. It now reads `terra::plot(...)`.
+
+* The agreement with pycacumen on the synthetic suite is stated as measured:
+  identical on its sixty small scenes, within 0.032 % of pixels on its ten
+  large ones. The headline sentences said identical throughout; the table
+  below them never did.
 
 
 # rcacumen 0.5.0
@@ -44,6 +88,10 @@
   The regenerated pages are strictly richer than the ones they replace (1813
   words against 1639); nothing was lost.
 
+
+# rcacumen 0.4.0
+
+## Fixed
 
 * **`delineate()` now works on a real CHM file with nodata.** It did not.
   `read_chm()` returns `NA` where the file declares nodata -- terra honours the

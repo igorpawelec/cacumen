@@ -10,6 +10,8 @@ Copyright (C) 2025 Igor Pawelec
 Licence: GPLv3 — see LICENSE.
 """
 
+import warnings
+
 import numpy as np
 
 __all__ = ["smooth_chm", "SMOOTHING_METHODS"]
@@ -133,8 +135,13 @@ def _smooth_with_nan(ndimage, chm, ws, method):
     else:                                    # median
         # No vectorised form; 178x slower than median_filter on a 200x201
         # raster, which is why this path runs only when NaN is present.
-        out = ndimage.generic_filter(chm, np.nanmedian, size=ws,
-                                     mode="reflect")
+        # A window with no data in it is the expected case here, and its NaN
+        # is the answer. numpy says "All-NaN slice encountered" for each one,
+        # which printed a RuntimeWarning on every run over a CHM with holes.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="All-NaN slice", category=RuntimeWarning)
+            out = ndimage.generic_filter(chm, np.nanmedian, size=ws,
+                                         mode="reflect")
 
     # A window with nothing in it has no statistic. For the gaussian that
     # means the *kernel* reached nothing, and the kernel is wider than ws --

@@ -15,7 +15,9 @@ screen_tops(chm, tops, hmin)
 }
 \value{
 A two-column matrix. Tops outside the raster are dropped rather
-than wrapping around it.
+than wrapping around it, and so are tops standing on a cell with no
+data: a top \code{\link[=merge_tops]{merge_tops()}} placed between two crowns can land on one,
+and the trees it stood for are then left without a crown.
 }
 \description{
 Useful as a second, stricter pass: detect at 2 m so the growing can see

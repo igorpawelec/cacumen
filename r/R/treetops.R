@@ -152,18 +152,28 @@ merge_tops <- function(tops, distance = 5) {
 #' @param hmin Numeric. Minimum height to keep.
 #'
 #' @return A two-column matrix. Tops outside the raster are dropped rather
-#'   than wrapping around it.
+#'   than wrapping around it, and so are tops standing on a cell with no
+#'   data: a top [merge_tops()] placed between two crowns can land on one,
+#'   and the trees it stood for are then left without a crown.
 #' @export
 screen_tops <- function(chm, tops, hmin) {
   chm <- as.matrix(chm)
   tops <- .as_tops(tops)
+  if (!is.numeric(hmin) || length(hmin) != 1L || is.na(hmin))
+    stop("hmin must be a single number", call. = FALSE)
   if (nrow(tops) == 0L) return(tops)
   rc <- floor(tops)
   inside <- rc[, 1] >= 1 & rc[, 1] <= nrow(chm) & rc[, 2] >= 1 & rc[, 2] <= ncol(chm)
+  inside[is.na(inside)] <- FALSE      # a top with an NA coordinate is nowhere
   keep <- rep(FALSE, nrow(tops))
   if (any(inside)) {
     v <- chm[cbind(rc[inside, 1], rc[inside, 2])]
-    keep[inside] <- v >= hmin
+    # NA >= hmin is NA, and an NA in a logical index returns a row of NA
+    # rather than dropping the row: the top would stay, as (NA, NA), and
+    # grow_crowns() would stop on it. A merged top is the centroid of its
+    # group, so on a CHM with holes it can stand on one. numpy arrives at
+    # the same answer by a different route, since NaN >= x is False.
+    keep[inside] <- !is.na(v) & v >= hmin
   }
   tops[keep, , drop = FALSE]
 }

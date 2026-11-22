@@ -46,6 +46,33 @@ ok(nrow(screen_tops(sm, t, 0)) == 2, "screen keeps tall tops")
 ok(nrow(screen_tops(sm, rbind(c(-5, -5), c(500, 500)), 0)) == 0,
    "out-of-raster tops dropped, not wrapped")
 
+# A top on a cell with no data used to survive as a row of NA, on which
+# grow_crowns() stopped with "missing value where TRUE/FALSE needed". It
+# happened on two of the seven real CHMs in test_data with the README's own
+# parameters: merge_tops() puts the centroid of a group wherever it falls.
+holed <- matrix(20, 10, 10); holed[1:3, ] <- NA
+kept <- screen_tops(holed, rbind(c(2, 5), c(7, 5)), hmin = 10)
+ok(nrow(kept) == 1 && !anyNA(kept) && all(kept[1, ] == c(7, 5)),
+   "a top on an NA cell is dropped, not kept as an NA row")
+# The same NA rows by two other doors: an hmin that is NA, and a top whose
+# own coordinate is NA.
+ok(inherits(try(screen_tops(holed, rbind(c(7, 5)), NA), silent = TRUE), "try-error"),
+   "hmin = NA is refused, not turned into NA rows")
+kept <- screen_tops(holed, rbind(c(NA, 1), c(7, 5)), hmin = 10)
+ok(nrow(kept) == 1 && all(kept[1, ] == c(7, 5)),
+   "a top with an NA coordinate is dropped")
+
+# The same through delineate(): two crowns either side of a hole, close
+# enough to merge, so the merged top lands inside the hole.
+yy <- row(matrix(0, 30, 30)); xx <- col(matrix(0, 30, 30))
+gap <- pmax(26 * exp(-((yy - 15)^2 + (xx - 10)^2) / 8),
+            26 * exp(-((yy - 15)^2 + (xx - 16)^2) / 8))
+gap[13:17, 12:14] <- NA
+res <- delineate(gap, smooth_ws = 1, hmin = 5, detect_ws = 5,
+                 merge_distance = 8, screen_hmin = 10, quiet = TRUE)
+ok(!anyNA(res$tops), "delineate() keeps no NA top when a merged top falls in a hole")
+ok(nrow(res$tops) == 0, "the merged top in the hole is screened out, as in pycacumen")
+
 cat("as_pixels\n")
 ok(all(as_pixels(rbind(c(3.7, 4.2))) == c(3L, 4L)), "floors to integers")
 ok(is.integer(as_pixels(rbind(c(3.7, 4.2)))), "returns integers")

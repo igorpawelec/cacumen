@@ -1,6 +1,6 @@
 # rcacumen
 
-<img src="../logo/cacumen-mark.svg" alt="cacumen mark: four tree crowns seen from above, two of them grown into one, each marked by its tree top" align="right" width="110"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/logo/cacumen.svg" alt="cacumen: four tree crowns seen from above, two of them grown into one, each marked by its tree top" align="right" height="64"/>
 
 [![R-CMD-check](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml)
 [![Release](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=r-v*&label=release)](https://github.com/igorpawelec/cacumen/releases)

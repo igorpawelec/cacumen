@@ -1,6 +1,4 @@
-<img src="logo/cacumen-mark.svg" align="right" width="110" alt="cacumen mark: four tree crowns seen from above, two of them grown into one, each marked by its tree top"/>
-
-# cacumen
+<h1><img src="logo/cacumen.svg" alt="cacumen" height="96"/></h1>
 
 [![python-tests](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/python-tests.yml)
 [![R-CMD-check](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/igorpawelec/cacumen/actions/workflows/R-CMD-check.yaml)

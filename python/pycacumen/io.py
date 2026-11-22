@@ -10,6 +10,8 @@ Licence: GPLv3 — see LICENSE.
 """
 
 import os
+from xml.sax.saxutils import escape as _xml_escape
+
 import numpy as np
 
 
@@ -135,17 +137,21 @@ def save_segments(segments: np.ndarray,
     # --- 1) RAW dump (.bin) + VRT ---
     bin_path = os.path.join(out_path, f"{fname}.bin")
     vrt_path = os.path.join(out_path, f"{fname}.vrt")
-    segments.astype(np.int32).tofile(bin_path)
+    segments.astype("<i4").tofile(bin_path)
 
     rows, cols = segments.shape
-    pixel_area = abs(transform.a * transform.e)
-    gtx = (transform.c, transform.a, 0, transform.f, 0, -transform.e)
-    with open(vrt_path, "w") as f:
+    # The six numbers of the affine in GDAL's order, signs as they are: e is
+    # negative for a north-up raster. Until 0.6.2 it was written negated, which
+    # put the raster above its own top edge, and the band was a plain
+    # VRTRasterBand, which has no source: it read as zeros. A raw file needs
+    # the VRTRawRasterBand subclass and its byte order.
+    gtx = (transform.c, transform.a, transform.b, transform.f, transform.d, transform.e)
+    with open(vrt_path, "w", encoding="utf-8") as f:
         f.write(f'<VRTDataset rasterXSize="{cols}" rasterYSize="{rows}">\n')
-        f.write(f'  <SRS>{crs_wkt}</SRS>\n')
-        f.write(f'  <GeoTransform>{",".join(map(str, gtx))}</GeoTransform>\n')
-        f.write('  <VRTRasterBand dataType="Int32" band="1">\n')
-        f.write(f'    <SourceFilename relativeToVRT="1">{fname}.bin</SourceFilename>\n')
+        f.write(f'  <SRS>{_xml_escape(crs_wkt or "")}</SRS>\n')
+        f.write(f'  <GeoTransform>{", ".join(repr(float(v)) for v in gtx)}</GeoTransform>\n')
+        f.write('  <VRTRasterBand dataType="Int32" band="1" subClass="VRTRawRasterBand">\n')
+        f.write(f'    <SourceFilename relativeToVRT="1">{_xml_escape(fname)}.bin</SourceFilename>\n')
         f.write('    <ImageOffset>0</ImageOffset>\n')
         f.write('    <PixelOffset>4</PixelOffset>\n')
         f.write(f'    <LineOffset>{4*cols}</LineOffset>\n')
@@ -180,6 +186,7 @@ def save_segments(segments: np.ndarray,
 
     # Max height per crown — use np.maximum.at (in-place, no copy)
     max_heights = np.full(max_id, -np.inf, dtype=np.float32)
+        f.write('    <ByteOrder>LSB</ByteOrder>\n')
     flat_seg = seg_data.ravel()
     flat_chm = chm_array.ravel()
     if flat_chm.dtype != np.float32:

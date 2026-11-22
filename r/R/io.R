@@ -11,9 +11,15 @@
 #'   `SpatRaster` carrying the CRS, extent and resolution).
 #'
 #' @details
-#' Nodata is left as-is rather than converted to `NA`: growing works on raw
-#' values and a nodata of -9999 falls below any sensible `mask_thresh`.
-#' Convert explicitly if your nodata is a plausible height.
+#' Cells the file declares as nodata arrive as `NA`, because \pkg{terra}
+#' honours the raster's nodata flag. [smooth_chm()] takes each window's
+#' statistic over the cells that have data, so it also gives a height to an
+#' `NA` cell with a valid neighbour: the rim of a hole can end up inside a
+#' crown. The cells still `NA` after smoothing are never detected as tops
+#' and never join a crown. A nodata value the file does not declare is read
+#' as a height: -9999 falls below any sensible `mask_thresh`, but set it to
+#' `NA` yourself before smoothing, which would otherwise take it into its
+#' neighbours' windows.
 #' @export
 read_chm <- function(x, band = 1L) {
   .need_terra()

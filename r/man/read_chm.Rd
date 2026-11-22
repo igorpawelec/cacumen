@@ -21,7 +21,13 @@ Thin wrapper over \pkg{terra}, kept out of the algorithm so that
 dependency at all.
 }
 \details{
-Nodata is left as-is rather than converted to \code{NA}: growing works on raw
-values and a nodata of -9999 falls below any sensible \code{mask_thresh}.
-Convert explicitly if your nodata is a plausible height.
+Cells the file declares as nodata arrive as \code{NA}, because \pkg{terra}
+honours the raster's nodata flag. \code{\link[=smooth_chm]{smooth_chm()}} takes each window's
+statistic over the cells that have data, so it also gives a height to an
+\code{NA} cell with a valid neighbour: the rim of a hole can end up inside a
+crown. The cells still \code{NA} after smoothing are never detected as tops
+and never join a crown. A nodata value the file does not declare is read
+as a height: -9999 falls below any sensible \code{mask_thresh}, but set it to
+\code{NA} yourself before smoothing, which would otherwise take it into its
+neighbours' windows.
 }

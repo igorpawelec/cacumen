@@ -19,8 +19,10 @@
 #' Edges are handled by reflection, matching `scipy.ndimage`, so results
 #' agree with pycacumen.
 #'
-#' `NA` is not treated specially and will spread by `ws %/% 2`. Fill nodata
-#' before smoothing if that matters.
+#' `NA` is skipped, not propagated: each window's statistic is taken over the
+#' cells that have data, and a window holding nothing but `NA` stays `NA`. A
+#' hole therefore shrinks by up to `ws %/% 2` at its rim instead of growing,
+#' as in pycacumen.
 #'
 #' @examples
 #' chm <- matrix(runif(400, 0, 30), 20, 20)

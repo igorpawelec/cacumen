@@ -30,8 +30,10 @@ height accuracy for far fewer false tops.
 Edges are handled by reflection, matching \code{scipy.ndimage}, so results
 agree with pycacumen.
 
-\code{NA} is not treated specially and will spread by \code{ws \%/\% 2}. Fill nodata
-before smoothing if that matters.
+\code{NA} is skipped, not propagated: each window's statistic is taken over the
+cells that have data, and a window holding nothing but \code{NA} stays \code{NA}. A
+hole therefore shrinks by up to \code{ws \%/\% 2} at its rim instead of growing,
+as in pycacumen.
 }
 \examples{
 chm <- matrix(runif(400, 0, 30), 20, 20)

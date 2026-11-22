@@ -97,7 +97,7 @@ res$tops          # tree tops actually used
 res$n_contested   # regions claimed by more than one crown
 
 write_crowns(res$crowns, "crowns.tif")
-plot(crowns_to_polygons(res$crowns))
+terra::plot(crowns_to_polygons(res$crowns))
 ```
 
 ### Matrices, without touching the disk

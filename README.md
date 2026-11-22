@@ -66,7 +66,7 @@ res$tops          # tree tops actually used
 res$n_contested   # regions claimed by more than one crown
 
 write_crowns(res$crowns, "crowns.tif")
-plot(crowns_to_polygons(res$crowns))
+terra::plot(crowns_to_polygons(res$crowns))
 ```
 
 The parameters, the conflict rules and the measured agreement between the two packages are documented in each package's README: [python/README.md](python/README.md), [r/README.md](r/README.md).

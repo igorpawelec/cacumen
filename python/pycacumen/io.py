@@ -150,9 +150,20 @@ def save_segments(segments: np.ndarray,
     -------
     - RAW raster: {fname}.bin + {fname}.vrt
     - Vector file with attributes: id, max_height, area_m2, crown_diameter
+
+    `max_height` is the highest cell of `chm_array` under the crown, cells
+    with no data left out. A crown that stands on such cells only takes it
+    from `fallback_chm` when one is given (the smoothed CHM, which is the
+    surface the crown was grown on), and has none otherwise.
     """
     fiona = _ensure_fiona()
     shapes = _ensure_rasterio_features()
+
+    # The folder is made here: the quick start writes to "out/", and until 0.6.2
+    # that failed with FileNotFoundError unless the reader had made it first.
+    # An empty path still means the current directory.
+    if out_path:
+        os.makedirs(out_path, exist_ok=True)
 
     # --- 1) RAW dump (.bin) + VRT ---
     bin_path = os.path.join(out_path, f"{fname}.bin")
@@ -169,17 +180,13 @@ def save_segments(segments: np.ndarray,
     with open(vrt_path, "w", encoding="utf-8") as f:
         f.write(f'<VRTDataset rasterXSize="{cols}" rasterYSize="{rows}">\n')
         f.write(f'  <SRS>{_xml_escape(crs_wkt or "")}</SRS>\n')
-
-    `max_height` is the highest cell of `chm_array` under the crown, cells
-    with no data left out. A crown that stands on such cells only takes it
-    from `fallback_chm` when one is given (the smoothed CHM, which is the
-    surface the crown was grown on), and has none otherwise.
         f.write(f'  <GeoTransform>{", ".join(repr(float(v)) for v in gtx)}</GeoTransform>\n')
         f.write('  <VRTRasterBand dataType="Int32" band="1" subClass="VRTRawRasterBand">\n')
         f.write(f'    <SourceFilename relativeToVRT="1">{_xml_escape(fname)}.bin</SourceFilename>\n')
         f.write('    <ImageOffset>0</ImageOffset>\n')
         f.write('    <PixelOffset>4</PixelOffset>\n')
         f.write(f'    <LineOffset>{4*cols}</LineOffset>\n')
+        f.write('    <ByteOrder>LSB</ByteOrder>\n')
         f.write('  </VRTRasterBand>\n')
         f.write('</VRTDataset>\n')
 
@@ -190,12 +197,6 @@ def save_segments(segments: np.ndarray,
         # Close each segment mask — but do it efficiently via label dilation
         # For small numbers of crowns, per-label closing is acceptable
         # For large numbers, we close the binary mask then re-label
-    # The folder is made here: the quick start writes to "out/", and until 0.6.2
-    # that failed with FileNotFoundError unless the reader had made it first.
-    # An empty path still means the current directory.
-    if out_path:
-        os.makedirs(out_path, exist_ok=True)
-
         closed = np.zeros_like(seg_data)
         seg_ids = np.unique(seg_data)
         seg_ids = seg_ids[seg_ids != 0]
@@ -214,7 +215,6 @@ def save_segments(segments: np.ndarray,
     # Until 0.6.2 max_height was NaN for every crown with one such cell, which
     # on a CHM with scattered holes is most of them.
     max_heights = np.full(max_id, -np.inf, dtype=np.float32)
-        f.write('    <ByteOrder>LSB</ByteOrder>\n')
     flat_seg = seg_data.ravel()
     flat_chm = chm_array.ravel()
     if flat_chm.dtype != np.float32:
@@ -299,6 +299,8 @@ def save_tree_tops(corrected_tops: np.ndarray,
         Fiona driver: "ESRI Shapefile" (default), "GPKG", "GeoJSON".
     """
     fiona = _ensure_fiona()
+    if out_path:
+        os.makedirs(out_path, exist_ok=True)
 
     ext_map = {"ESRI Shapefile": ".shp", "GPKG": ".gpkg", "GeoJSON": ".geojson"}
     ext = ext_map.get(driver, ".shp")
@@ -334,7 +336,11 @@ def save_tree_tops(corrected_tops: np.ndarray,
             # -- 0.25 m on the 0.5 m test rasters, systematic, and enough to
             # matter when comparing against field-measured stems. This is
             # what rasterio.transform.xy does.
-            x, y = transform * (float(c) + 0.5, float(r) + 0.5)
+            # transform * (col, row), written out: affine 3 deprecates the
+            # operator for points, and the sums are in the order it uses.
+            px, py = float(c) + 0.5, float(r) + 0.5
+            x = px * transform.a + py * transform.b + transform.c
+            y = px * transform.d + py * transform.e + transform.f
             geom = {"type": "Point", "coordinates": (x, y)}
             dst.write({
                 'geometry': geom,
@@ -348,8 +354,6 @@ def save_tree_tops(corrected_tops: np.ndarray,
 def save_crowns_raster(crowns: np.ndarray,
                        output_path: str,
                        transform,
-    if out_path:
-        os.makedirs(out_path, exist_ok=True)
                        crs_wkt: str,
                        nodata: int = 0,
                        compress: str = "deflate") -> None:

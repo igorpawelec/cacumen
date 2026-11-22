@@ -159,6 +159,12 @@ def save_segments(segments: np.ndarray,
         # Close each segment mask — but do it efficiently via label dilation
         # For small numbers of crowns, per-label closing is acceptable
         # For large numbers, we close the binary mask then re-label
+    # The folder is made here: the quick start writes to "out/", and until 0.6.2
+    # that failed with FileNotFoundError unless the reader had made it first.
+    # An empty path still means the current directory.
+    if out_path:
+        os.makedirs(out_path, exist_ok=True)
+
         closed = np.zeros_like(seg_data)
         seg_ids = np.unique(seg_data)
         seg_ids = seg_ids[seg_ids != 0]
@@ -293,6 +299,8 @@ def save_tree_tops(corrected_tops: np.ndarray,
 def save_crowns_raster(crowns: np.ndarray,
                        output_path: str,
                        transform,
+    if out_path:
+        os.makedirs(out_path, exist_ok=True)
                        crs_wkt: str,
                        nodata: int = 0,
                        compress: str = "deflate") -> None:

@@ -110,6 +110,25 @@ def _ensure_morphology():
     return closing, disk
 
 
+def _polygon_area(geom):
+    """Area of a GeoJSON-like Polygon: the outer ring less its holes.
+
+    The shoelace sum is taken on coordinates moved to each ring's first
+    vertex; on map coordinates as they are its products are of the order of
+    1e11 and it loses the digits a single pixel's area needs.
+    """
+    total = 0.0
+    for k, ring in enumerate(geom["coordinates"]):
+        ox, oy = ring[0][0], ring[0][1]
+        x0 = y0 = twice = 0.0
+        for pt in ring[1:]:
+            x1, y1 = pt[0] - ox, pt[1] - oy
+            twice += x0 * y1 - x1 * y0
+            x0, y0 = x1, y1
+        total += abs(twice) / 2.0 if k == 0 else -abs(twice) / 2.0
+    return total
+
+
 # ── Public API ────────────────────────────────────────────────────────
 
 def save_segments(segments: np.ndarray,
@@ -188,7 +207,6 @@ def save_segments(segments: np.ndarray,
 
     # --- 3) Precompute per-crown stats (one pass) ---
     max_id = int(seg_data.max()) + 1 if seg_data.max() > 0 else 1
-    pixel_counts = np.bincount(seg_data.ravel(), minlength=max_id)
 
     # Max height per crown, in place and without a copy. fmax, not maximum:
     # a crown reaches over the rim of a hole, because smoothing gives those
@@ -242,8 +260,11 @@ def save_segments(segments: np.ndarray,
             if seg_id <= 0:
                 continue
 
-            n_px = int(pixel_counts[seg_id])
-            area = n_px * pixel_area
+            # The area of this polygon, not of the crown: a crown that comes out
+            # of the polygoniser in several pieces is several features, and
+            # until 0.6.2 each carried the area and diameter of the whole crown,
+            # so their sum counted the crown once per piece.
+            area = _polygon_area(geom)
             diam = 2.0 * np.sqrt(area / np.pi)
             max_h = float(max_heights[seg_id])
 

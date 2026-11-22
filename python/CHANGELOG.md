@@ -1,6 +1,42 @@
 # Changelog
 
 
+## [0.6.2] — 2026-11-22
+
+### Fixed
+- **`to_vector` and `--vector` failed unless the folder already existed.**
+  The README's quick start writes to `out/`, and that raised
+  `FileNotFoundError` on `out/crowns.bin`; from the command line the crown
+  raster had been written by then and the run ended with exit code 1. The
+  folder is created, for the tree-top points too.
+- **The `.vrt` written beside the polygons did not describe the raster.** The
+  pixel height was written with its sign reversed, which placed the raster
+  above its own top edge (bottom 188,718.0 over top 188,617.5 on the test
+  tile), and the band was declared as a plain VRT band, which has no source
+  and reads as zeros. It is a `VRTRawRasterBand` on the `.bin` now, with the
+  geotransform as it is, and opens as the same grid and values as the
+  GeoTIFF.
+- **`max_height` of the crown polygons was missing for most crowns of a CHM
+  with holes.** A crown reaches over the rim of a hole, because smoothing
+  gives those cells a height, and the maximum was taken with a function that
+  propagates the NaN the raw CHM has there: with the quick-start parameters
+  124 of the 212 polygons of
+  `chm_150_2014.tif` had no height, 323 of 386 on `chm_33_2012.tif`. Cells
+  with no data are left out of the maximum. A crown that stands on such
+  cells only takes the highest cell of the smoothed CHM, the surface it was
+  grown on. **This changes the `max_height` attribute**, not the crowns.
+- **A crown that polygonises into several pieces carried the whole crown's
+  area and diameter on each piece.** One of the 145 crowns of
+  `chm_80_2021.tif` comes out in three, and the areas of the layer added up
+  to more than the crowns cover. `area_m2` and `crown_diameter` are those of
+  each polygon now, measured on its geometry.
+- **`pycacumen -V` asked for `-i` and `-o`.** It prints the version and exits.
+- Smoothing a CHM with holes no longer prints numpy's "All-NaN slice
+  encountered" for every empty window; the result is unchanged.
+- The tree-top points no longer use `Affine * (x, y)`, which affine 3
+  announces the end of. Same coordinates.
+
+
 ## [0.6.1] — 2026-11-06
 
 ### Fixed

@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a raster of ids and as polygons. R and plain C — no Rcpp, no compiled dependencies, and `terra` only if you want to read and write files.
 
-> **Python users:** the same algorithm is in [`python/`](../python), the pycacumen package. The two packages share this repository, and they are not merely similar. On the shared synthetic test suite they produce **identical output, pixel for pixel**. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
+> **Python users:** the same algorithm is in [`python/`](../python), the pycacumen package. The two packages share this repository, and they are not merely similar. On the sixty small scenes of the shared synthetic test suite they produce **identical output, pixel for pixel**; on its ten large, crowded ones they differ on 0.032 % of pixels. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
 
 ## The problem it solves
 

@@ -16,16 +16,17 @@ permissions: read-all
 
 jobs:
   identical:
-    # The README claims rcacumen and pycacumen are identical pixel for pixel and
-    # that this is checked rather than asserted. r/tools/ holds that check but
+    # The README claims rcacumen and pycacumen are identical pixel for pixel on
+    # the small synthetic scenes and that this is checked rather than asserted. r/tools/ holds that check but
     # it needs Python, which CRAN machines do not have — so it never ran
     # anywhere automatically. GitHub runners do have Python, so it runs here.
     #
-    # Scope, stated plainly: this covers the 60 synthetic scenes the
-    # generator builds. It does not cover agreement on real canopy height
-    # models, which is a separate open question.
+    # Scope, stated plainly: this covers the 70 synthetic scenes the
+    # generator builds. The 60 small ones must match exactly, the 10 large
+    # crowded ones within 0.5 % of pixels. It does not cover agreement on
+    # real canopy height models, which is a separate open question.
     runs-on: ubuntu-latest
-    name: rcacumen identical to pycacumen
+    name: rcacumen against pycacumen
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -54,9 +55,9 @@ jobs:
         # From python/ in the same checkout, so the two halves of one commit
         # are compared with each other. A change to either package that
         # breaks the agreement fails here before it reaches main.
-        run: |
         # With the io extra: the reference generator reads the real tiles of
         # test_data with rasterio.
+        run: |
           python -m pip install --upgrade pip
           python -m pip install "../python[io]"
 
@@ -72,8 +73,8 @@ jobs:
         run: python tools/generate_pycacumen_reference.py
 
       - name: Compare rcacumen against them
-        # cross_validate_against_pycacumen.R stops non-zero on any disagreement,
-        # so a single differing pixel fails the job.
+        # cross_validate_against_pycacumen.R stops non-zero on a single differing
+        # pixel in a small scene, or above 0.5 % of pixels in the large ones.
         run: Rscript tools/cross_validate_against_pycacumen.R
 
       - name: Run the README quick start on every test tile

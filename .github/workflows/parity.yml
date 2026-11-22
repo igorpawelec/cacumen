@@ -55,8 +55,10 @@ jobs:
         # are compared with each other. A change to either package that
         # breaks the agreement fails here before it reaches main.
         run: |
+        # With the io extra: the reference generator reads the real tiles of
+        # test_data with rasterio.
           python -m pip install --upgrade pip
-          python -m pip install ../python
+          python -m pip install "../python[io]"
 
       - name: Check the version declarations agree
         # CITATION.cff is .Rbuildignore'd, so R CMD check never sees it;
@@ -73,3 +75,10 @@ jobs:
         # cross_validate_against_pycacumen.R stops non-zero on any disagreement,
         # so a single differing pixel fails the job.
         run: Rscript tools/cross_validate_against_pycacumen.R
+
+      - name: Run the README quick start on every test tile
+        # The synthetic scenes above never call merge_tops() or screen_tops().
+        # The README's quick start does, and on the real tiles, which have
+        # holes, two of the seven stopped rcacumen 0.5.0. Runs the call on
+        # each tile and holds the number of tops against pycacumen's.
+        run: Rscript tools/quick_start_on_test_tiles.R

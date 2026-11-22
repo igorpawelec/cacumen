@@ -73,3 +73,29 @@ with open(f"{OUT}/meta.csv", "w") as f:
     for k, vt, rule, nc, ps, rr in cases:
         f.write(f"{k},{vt},{rule},{nc},{ps},{rr}\n")
 print(f"{len(cases)} reference cases written to {OUT}/")
+
+# The README quick start on the real tiles of the repository: how many tops
+# and crowns pycacumen finds, for tools/quick_start_on_test_tiles.R to hold
+# rcacumen against. The synthetic cases above never call merge_tops or
+# screen_tops, which is where rcacumen 0.5.0 kept a top that pycacumen
+# dropped and then stopped on it. Needs rasterio, which the array API above
+# does not, so without it this part is skipped rather than failed.
+try:
+    import glob
+    from pycacumen import CrownDelineator
+    import rasterio  # noqa: F401  (from_file needs it; fail here, not per tile)
+except ImportError as e:
+    print(f"real tiles skipped ({e}); install pycacumen[io] to write tiles.csv")
+else:
+    tiles = {}
+    for folder in ("test_data", os.path.join("..", "python", "test_data")):
+        for path in sorted(glob.glob(os.path.join(folder, "*.tif"))):
+            tiles.setdefault(os.path.basename(path), path)
+    with open(f"{OUT}/tiles.csv", "w") as f:
+        f.write("tile,tops,crowns\n")
+        for name, path in sorted(tiles.items()):
+            cd = CrownDelineator.from_file(path, quiet=True)
+            cd.smooth(ws=3).detect(hmin=7, ws=5).merge(5.0).screen(10.0)
+            crowns = cd.delineate(variance_thresh=2.0)
+            f.write(f"{name},{len(cd.tops)},{len(set(np.unique(crowns)) - {0})}\n")
+    print(f"{len(tiles)} real tiles written to {OUT}/tiles.csv")

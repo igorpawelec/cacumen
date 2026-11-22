@@ -65,19 +65,22 @@ def build_parser():
 
     p.add_argument("-q", "--quiet", action="store_true",
                    help="suppress progress messages")
-    p.add_argument("-V", "--version", action="store_true",
+    # action="version" prints and exits before the required arguments are
+    # checked. As a store_true flag -V could only be given together with -i
+    # and -o, which is not how anyone asks for a version.
+    p.add_argument("-V", "--version", action="version", version=f"%(prog)s {_version()}",
                    help="print version and exit")
     return p
+
+
+def _version():
+    from pycacumen import __version__
+    return __version__
 
 
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.version:
-        from pycacumen import __version__
-        print(f"pycacumen {__version__}")
-        return 0
 
     from pycacumen import CrownDelineator
 

@@ -119,7 +119,8 @@ def save_segments(segments: np.ndarray,
                   crs_wkt: str,
                   chm_array: np.ndarray,
                   closing_radius: int = 0,
-                  driver: str = "ESRI Shapefile") -> None:
+                  driver: str = "ESRI Shapefile",
+                  fallback_chm: np.ndarray = None) -> None:
     """
     Save crown segments as vector file + raw raster dump.
 
@@ -149,6 +150,11 @@ def save_segments(segments: np.ndarray,
     with open(vrt_path, "w", encoding="utf-8") as f:
         f.write(f'<VRTDataset rasterXSize="{cols}" rasterYSize="{rows}">\n')
         f.write(f'  <SRS>{_xml_escape(crs_wkt or "")}</SRS>\n')
+
+    `max_height` is the highest cell of `chm_array` under the crown, cells
+    with no data left out. A crown that stands on such cells only takes it
+    from `fallback_chm` when one is given (the smoothed CHM, which is the
+    surface the crown was grown on), and has none otherwise.
         f.write(f'  <GeoTransform>{", ".join(repr(float(v)) for v in gtx)}</GeoTransform>\n')
         f.write('  <VRTRasterBand dataType="Int32" band="1" subClass="VRTRawRasterBand">\n')
         f.write(f'    <SourceFilename relativeToVRT="1">{_xml_escape(fname)}.bin</SourceFilename>\n')
@@ -184,14 +190,28 @@ def save_segments(segments: np.ndarray,
     max_id = int(seg_data.max()) + 1 if seg_data.max() > 0 else 1
     pixel_counts = np.bincount(seg_data.ravel(), minlength=max_id)
 
-    # Max height per crown — use np.maximum.at (in-place, no copy)
+    # Max height per crown, in place and without a copy. fmax, not maximum:
+    # a crown reaches over the rim of a hole, because smoothing gives those
+    # cells a height, and maximum propagates the NaN the raw CHM has there.
+    # Until 0.6.2 max_height was NaN for every crown with one such cell, which
+    # on a CHM with scattered holes is most of them.
     max_heights = np.full(max_id, -np.inf, dtype=np.float32)
         f.write('    <ByteOrder>LSB</ByteOrder>\n')
     flat_seg = seg_data.ravel()
     flat_chm = chm_array.ravel()
     if flat_chm.dtype != np.float32:
         flat_chm = flat_chm.astype(np.float32)
-    np.maximum.at(max_heights, flat_seg, flat_chm)
+    np.fmax.at(max_heights, flat_seg, flat_chm)
+    if fallback_chm is not None:
+        if np.shape(fallback_chm) != seg_data.shape:
+            raise ValueError(f"fallback_chm has shape {np.shape(fallback_chm)}, the crowns {seg_data.shape}")
+        # A small crown can stand wholly on cells the raw CHM has no data for;
+        # it exists because smoothing gave them a height, so that is its height.
+        bare = ~np.isfinite(max_heights)
+        if bare.any():
+            second = np.full(max_id, -np.inf, dtype=np.float32)
+            np.fmax.at(second, flat_seg, np.asarray(fallback_chm, dtype=np.float32).ravel())
+            max_heights[bare] = second[bare]
     max_heights[0] = 0.0  # background
 
     # --- 4) Single-pass vectorization ---
@@ -231,7 +251,8 @@ def save_segments(segments: np.ndarray,
                 'geometry': geom,
                 'properties': {
                     'id': seg_id,
-                    'max_height': round(max_h, 2),
+                    # no height at all under the crown: no value, not -inf
+                    'max_height': round(max_h, 2) if np.isfinite(max_h) else None,
                     'area_m2':    round(area, 2),
                     'crown_diameter': round(diam, 2)
                 }

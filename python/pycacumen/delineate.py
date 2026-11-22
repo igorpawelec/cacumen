@@ -237,6 +237,7 @@ class CrownDelineator:
             raise ValueError("call delineate() first")
         self._need_geo("to_vector")
         crs_wkt = self.crs.to_wkt() if hasattr(self.crs, "to_wkt") else self.crs
+        kwargs.setdefault("fallback_chm", self.smoothed)
         save_segments(self.crowns, str(out_dir), name, self.transform,
                       crs_wkt, chm_array=self.chm, **kwargs)
         self._say(f"wrote {out_dir}/{name}")

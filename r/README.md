@@ -163,7 +163,7 @@ Two implementations of one method are only useful if they agree, so this is meas
 Reproduce it yourself:
 
 ```bash
-pip install ../python          # pycacumen from this checkout
+pip install "../python[io]"   # pycacumen from this checkout, with rasterio for the real tiles
 python3 tools/generate_pycacumen_reference.py
 Rscript tools/cross_validate_against_pycacumen.R   # the synthetic scenes
 Rscript tools/real_tiles_stage_by_stage.R          # the two rows on real CHMs
@@ -222,7 +222,7 @@ remotes::install_github("igorpawelec/cacumen", subdir = "r")
 #   R CMD build r && R CMD check rcacumen_0.5.1.tar.gz
 ```
 
-The README figures are remade with `Rscript www/figures.R` from the tile in `test_data/`, using the package in the checkout (`pkgload`) rather than an installed copy.
+The README figures are remade with `Rscript www/figures.R`, run from this folder, from the tile in `test_data/`, using the package in the checkout (`pkgload`) rather than an installed copy.
 
 </details>
 

@@ -1,6 +1,6 @@
 # The README figures, generated from test_data so they can be remade.
 #
-#     Rscript www/figures.R           # from the repository root
+#     Rscript www/figures.R           # from the package folder, r/
 #
 # Writes www/pipeline.png (CHM, tree tops, crowns) and www/variance_thresh.png
 # (the same scene at three settings of the main lever, with the tops the

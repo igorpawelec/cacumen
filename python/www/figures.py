@@ -1,6 +1,9 @@
 """The README figures, generated from test_data so they can be remade.
 
-    python www/figures.py            # from the repository root; no install needed
+    python www/figures.py            # from the package folder, python/
+
+The package is read from the checkout and need not be installed; the script
+itself needs matplotlib, and rasterio to read the tiles.
 
 Writes www/pipeline.png (CHM, tree tops, crowns) and www/variance_thresh.png
 (the same scene at three settings of the main lever, with the tops the

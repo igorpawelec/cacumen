@@ -204,7 +204,7 @@ pip install -e ".[test]"
 pytest tests/ -v
 ```
 
-The README figures are remade with `python www/figures.py` from the tiles in `test_data/`.
+The README figures are remade with `python www/figures.py`, run from this folder, from the tiles in `test_data/`. The script needs matplotlib and rasterio; the package itself is read from the checkout.
 
 ```
 pycacumen/

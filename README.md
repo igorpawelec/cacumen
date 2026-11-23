@@ -14,7 +14,7 @@ A canopy height model goes in; a crown per tree comes out, as a label raster and
 | Python | [`pycacumen`](python/) | ![latest python tag](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=python-v*&label=) | `pip install --no-deps "git+https://github.com/igorpawelec/cacumen.git#subdirectory=python"` |
 | R | [`rcacumen`](r/) | ![latest r tag](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=r-v*&label=) | `remotes::install_github("igorpawelec/cacumen", subdir = "r")` |
 
-The two are checked against each other whenever either changes ([parity workflow](.github/workflows/parity.yml)). On the shared synthetic test suite they produce identical output, pixel for pixel, on the sixty small scenes and differ on 0.032 % of pixels on the ten large, crowded ones. On the seven real canopy height models of the repository the two watersheds differ on 0.25 % of the pixels inside the height mask and the finished crowns on 0.64 % of all pixels, because the two watershed implementations break plateau ties differently.
+The two are checked against each other whenever either changes ([parity workflow](.github/workflows/parity.yml)). On the seventy scenes of the shared synthetic test suite they produce identical output, pixel for pixel. On the seven real canopy height models of the repository the two watersheds differ on 0.20 % of the pixels inside the height mask and the finished crowns on 0.10 % of all pixels, because the two watershed implementations break plateau ties differently.
 
 **Authors:** Igor Pawelec, University of Agriculture in Kraków. **License:** GPL-3.0.
 
@@ -29,9 +29,9 @@ cacumen does not try to get the tops right first. It accepts the surplus and cor
 3. **Growing.** Each tree grows greedily, absorbing neighbours while the combined height variance stays under a threshold. When two trees absorb each other, they were one crown — this is where over-detection is undone.
 4. **Arbitration.** Growing runs independently per seed, so two crowns can claim the same region. The claim is settled on the data — the taller tree, the nearer tree, or the better height match — never on iteration order. Only an exact tie, two equally tall trees under the height rule for one, falls to the top that comes first, and both packages list the tops in one order.
 
-<img src="python/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
+<img src="python/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 215 are kept as tree tops; and the 214 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
 
-*A 100 × 100 m tile of a 0.5 m canopy height model (`python/test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 213 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 212 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.py`.*
+*A 100 × 100 m tile of a 0.5 m canopy height model (`python/test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 215 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 214 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.py`.*
 
 ## Quick start
 

@@ -43,7 +43,7 @@ The DESCRIPTION states that results match the pycacumen Python package pixel
 for pixel on the shared synthetic test suite, and closely but not exactly
 on canopy height models containing plateaus. That distinction is
 deliberate and measured, not hedging: the two implementations break
-plateau ties differently, the difference is 0.25% of watershed pixels on
+plateau ties differently, the difference is 0.20% of watershed pixels on
 the real scenes tested, and both figures are documented in the README
 along with how to reproduce them.
 

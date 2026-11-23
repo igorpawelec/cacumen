@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a raster of ids and as polygons. R and plain C — no Rcpp, no compiled dependencies, and `terra` only if you want to read and write files.
 
-> **Python users:** the same algorithm is in [`python/`](../python), the pycacumen package. The two packages share this repository, and they are not merely similar. On the sixty small scenes of the shared synthetic test suite they produce **identical output, pixel for pixel**; on its ten large, crowded ones they differ on 0.032 % of pixels. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
+> **Python users:** the same algorithm is in [`python/`](../python), the pycacumen package. The two packages share this repository, and they are not merely similar. On the seventy scenes of the shared synthetic test suite they produce **identical output, pixel for pixel**. On real canopy height models they agree closely but not exactly, because the two watershed implementations break plateau ties differently. Both numbers are measured, not claimed — see [Agreement with pycacumen](#agreement-with-pycacumen).
 
 ## The problem it solves
 
@@ -24,17 +24,17 @@ rcacumen does not try to get the tops right first. It accepts the surplus and co
 3. **Growing.** Each tree grows greedily, absorbing neighbours while the combined height variance stays under a threshold. When two trees absorb each other, they were one crown — this is where over-detection is undone.
 4. **Arbitration.** Growing runs independently per seed, so two crowns can claim the same region. The claim is settled on the data — the taller tree, the nearer tree, or the better height match — never on iteration order. Only an exact tie, two equally tall trees under the height rule for one, falls to the top that comes first, and both packages list the tops in one order.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 215 are kept as tree tops; and the 214 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
 
-*A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 213 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 212 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.R`, from this package.*
+*A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 215 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 214 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.R`, from this package.*
 
 ## The one parameter that matters
 
 `variance_thresh` is the height variance (σ², in m²) a single crown may contain. It sets how readily a tree absorbs its neighbours, and therefore how many of the surplus tops are merged back. Everything else has a sensible default; this one you choose per stand.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 202 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/r/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 214, 204 and 124 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
 
-*The same 213 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 11 and 90 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them. pycacumen's README shows the same tile from Python: identical at 2 and 20, one crown apart at 8 (203 against 202) — the watershed tie-breaking measured [below](#agreement-with-pycacumen), at work.*
+*The same 215 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 11 and 91 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them. pycacumen's README shows the same tile from Python: identical at 2 and 20, one crown apart at 8 (205 against 204) — the watershed tie-breaking measured [below](#agreement-with-pycacumen), at work.*
 
 Two further controls shape the outcome:
 
@@ -130,8 +130,8 @@ attr(crowns, "n_contested")
 |---|---|---|
 | `hmin` | 2 | Minimum height (m) for a pixel to be a candidate |
 | `ws` | 3 | Local-maximum window (px) = minimum spacing between tops |
-| `distance` | 5 | Merge radius (px). Grouping is transitive — keep below crown diameter |
-| `chm` | `NULL` | `merge_tops()` only: the CHM. With it, a group whose centroid falls on a cell with no data is represented by its highest top; `delineate()` passes it |
+| `distance` | 5 | Merge radius (px). Grouping is transitive — keep below crown diameter; a warning says when groups stretch over more than five times it |
+| `chm`, `hmin` | `NULL` | `merge_tops()` only: the CHM and the height the tops were detected above. With them, a group whose centroid falls on a cell with no data, or on one not above `hmin`, is represented by its highest top; `delineate()` passes both |
 
 **Growing** — `grow_crowns`
 
@@ -155,11 +155,11 @@ Two implementations of one method are only useful if they agree, so this is meas
 
 | Test | Result |
 |---|---|
-| Watershed vs `scikit-image`, 200 random scenes, flooded from the detected tops | 100 smooth scenes **exact** (0 of 195,857 px); 100 that are all plateau within **0.07 %** (152 of 206,286 px) |
-| Full pipeline vs pycacumen, 70 synthetic scenes, all 3 conflict rules | 60 small scenes **exact**; 10 large crowded ones within **0.032 %** |
+| Watershed vs `scikit-image`, 200 random scenes, flooded from the detected tops | 100 smooth scenes **exact** (0 of 195,857 px); 100 that are all plateau within **0.04 %** (83 of 206,286 px) |
+| Full pipeline vs pycacumen, 70 synthetic scenes, all 3 conflict rules | all 70 scenes **exact** (0 of 433,006 px) |
 | Crown counts, contested counts | identical throughout |
-| Watershed vs `scikit-image`, 7 **real** CHMs | 375 of 147,368 masked px differ (**0.25 %**) |
-| Full pipeline vs pycacumen, same 7 real CHMs | 1,793 of 281,602 px differ (**0.64 %**) |
+| Watershed vs `scikit-image`, 7 **real** CHMs | 288 of 147,368 masked px differ (**0.20 %**) |
+| Full pipeline vs pycacumen, same 7 real CHMs | 271 of 281,602 px differ (**0.10 %**) |
 
 Reproduce it yourself:
 
@@ -172,18 +172,18 @@ Rscript tools/real_tiles_stage_by_stage.R          # the two rows on real CHMs
 ```
 
 <details>
-<summary><b>Where the last 0.25 % goes</b></summary>
+<summary><b>Where the last 0.2 % goes</b></summary>
 
 The synthetic scenes agree exactly; real canopy height models do not, and the honest version is that the equality holds on the test suite rather than in general. Measured stage by stage on the seven tiles of `test_data`, each stage fed pycacumen's own output for the previous one (`tools/real_tiles_stage_by_stage.R`: median smoothing over 3 px, tops above 5 m in a 5 px window, variance threshold 8, mask at 1 m):
 
 - `smooth_chm` — identical to the last bit
 - `detect_tops` — agrees to 2.8e-14
 - the mask — identical
-- the watershed — **375 of 147,368 masked pixels differ**
+- the watershed — **288 of 147,368 masked pixels differ**
 
-`src/watershed.c` reimplements `skimage.segmentation.watershed` rather than calling it, and on the plateau structure of a real CHM the two break ties differently. Which of the three documented details diverges — heap order, label-on-push, or neighbour order — is not yet established. What is established is where it shows: flooded from the detected tops, random smooth surfaces come out identical and surfaces rounded to whole metres differ on 0.07 % of pixels; with the same number of markers dropped at random, so that several meet on one plateau, 2.4 % of pixels differ (`tools/watershed_against_skimage.R`).
+`src/watershed.c` reimplements `skimage.segmentation.watershed` rather than calling it, and on the plateau structure of a real CHM the two break ties differently. Which of the three documented details diverges — heap order, label-on-push, or neighbour order — is not yet established. What is established is where it shows: flooded from the detected tops, random smooth surfaces come out identical and surfaces rounded to whole metres differ on 0.04 % of pixels; with the same number of markers dropped at random, so that several meet on one plateau, 2.4 % of pixels differ (`tools/watershed_against_skimage.R`).
 
-Those 375 pixels become 1,793 differing crown pixels, and unevenly: on `chm_42_2014` 36 watershed pixels become 1,352, on `chm_33_2012` 20 become 206, and on `chm_80_2021` 92 become none. The watershed regions are the units the graph grows over, so moving one boundary pixel can shift a region's mean and variance, flip a merge, and carry a whole region to another crown. Treat any watershed difference as significant however small it looks.
+Those 288 pixels become 271 differing crown pixels, and unevenly: on `chm_33_2012` 15 watershed pixels become 86, on `chm_150_2023` 153 stay 153, and on `chm_80_2021` 84 become none. The watershed regions are the units the graph grows over, so moving one boundary pixel can shift a region's mean and variance, flip a merge, and carry a whole region to another crown. Treat any watershed difference as significant however small it looks.
 
 Two details make that agreement possible, and both are easy to get wrong in a port:
 
@@ -195,15 +195,15 @@ Two details make that agreement possible, and both are easy to get wrong in a po
 <details>
 <summary><b>Notes on behaviour</b></summary>
 
-**Tree detection is unstable on plateaus, and the growing is sensitive to ties as well.** This is a property of the method, not of either implementation, and it matters more than the 0.25 % above. Noise far below any physical or instrumental meaning changes nothing about the canopy, but it does break plateau ties differently. A nanometre is enough to move the tops: `detect_tops` works in double precision and sees it, while the grower stores its surface in single precision and is handed the same surface every time. Ten micrometres, a few units in the last place of a single-precision height, reach the watershed and the region growing too. Measured over the seven real CHMs, eight repeats each (`tools/measure_tie_sensitivity.py`):
+**Tree detection is unstable on plateaus, and the growing is sensitive to ties as well.** This is a property of the method, not of either implementation, and it matters more than the 0.2 % above. Noise far below any physical or instrumental meaning changes nothing about the canopy, but it does break plateau ties differently. A nanometre is enough to move the tops: `detect_tops` works in double precision and sees it, while the grower stores its surface in single precision and is handed the same surface every time. Ten micrometres, a few units in the last place of a single-precision height, reach the watershed and the region growing too. Measured over the seven real CHMs, eight repeats each (`tools/measure_tie_sensitivity.py`):
 
 | | worst case |
 |---|---|
 | tree tops detected, 1 nm of noise | **3 to 32 fewer**, in every repeat on every scene |
-| canopy pixels changing crown, 1 nm of noise, tops free to move | up to **85 %** (19 to 85 % by scene) |
-| canopy pixels changing crown, 10 µm of noise, tops held fixed | up to **17 %** (2.5 to 17 % by scene) |
+| canopy pixels changing crown, 1 nm of noise, tops free to move | up to **24 %** (2.9 to 24 % by scene) |
+| canopy pixels changing crown, 10 µm of noise, tops held fixed | up to **15 %** (2.1 to 15 % by scene) |
 
-Most of the instability enters through `detect_tops`: at a nanometre the grower's input does not change at all, so every pixel in the second row moved because a top did. The third row is what is left with the tops pinned, and it is not nothing: the watershed and the region growing answer to ties on their own. That is the sensitivity that separates rcacumen from pycacumen above. The tree count falls consistently rather than randomly, which suggests exact ties inflate it — a plateau of equal maxima yields tops that a hair of noise removes — though that mechanism is a hypothesis and has not been confirmed.
+At a nanometre the grower's input does not change at all, so every pixel in the second row moved because a top did: `detect_tops` is where a tie that small gets in. The third row is what is left with the tops pinned, and it is not nothing: the watershed and the region growing answer to ties on their own. That is the sensitivity that separates rcacumen from pycacumen above. The tree count falls consistently rather than randomly, which suggests exact ties inflate it — a plateau of equal maxima yields tops that a hair of noise removes — though that mechanism is a hypothesis and has not been confirmed.
 
 The practical consequence: **a tree count from this method carries an implementation-defined component**, and so do crown boundaries. Report the smoothing and detection parameters, and do not compare counts across implementations or library versions without re-running both.
 

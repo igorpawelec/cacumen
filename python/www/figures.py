@@ -26,7 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from pycacumen import CrownDelineator, detect_tops, merge_tops, screen_tops  # noqa: E402
+from pycacumen import CrownDelineator, as_pixels, detect_tops, merge_tops, screen_tops  # noqa: E402
 
 TILE = os.path.join(ROOT, "test_data", "chm_150_2014.tif")
 # One blue ramp for magnitude, one orange for the crown outlines, ink for tops.
@@ -74,8 +74,9 @@ def absorbed_mask(crowns, tops):
     present = np.zeros(len(tops) + 1, bool)
     present[np.unique(crowns[crowns > 0])] = True
     gone = ~present[1:]
+    cells = as_pixels(tops)                  # the cell each top was seeded on
     for i in np.nonzero(gone)[0]:            # every absorbed top sits inside somebody else's crown
-        r, c = int(round(tops[i, 0])), int(round(tops[i, 1]))
+        r, c = cells[i]
         assert crowns[r, c] > 0 and crowns[r, c] != i + 1, (i, crowns[r, c])
     return gone
 
@@ -86,7 +87,10 @@ chm[~np.isfinite(chm)] = 0.0
 vmax = float(np.nanpercentile(chm, 99.5))
 cd.smooth(ws=3)
 raw = detect_tops(cd.smoothed, hmin=HMIN, ws=WS_TOPS)
-kept = screen_tops(cd.smoothed, merge_tops(raw, distance=MERGE), hmin=SCREEN)
+# merged as the pipeline merges: with the CHM and the detection threshold, so that a group
+# whose centroid falls on a hole or in a gap keeps its highest top
+kept = screen_tops(cd.smoothed, merge_tops(raw, distance=MERGE, chm=cd.smoothed, hmin=HMIN),
+                   hmin=SCREEN)
 cd.tops = kept
 runs = {}
 for vt in (2.0, 8.0, 20.0):

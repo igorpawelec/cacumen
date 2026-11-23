@@ -69,8 +69,8 @@ Rscript tools/cross_validate_against_pycacumen.R
 `retry_rejected`. Small sparse scenes must match **exactly**; large crowded
 ones are allowed a bounded drift, because tie-breaking on a plateau is not
 stable across the two implementations. On the real CHMs of the repository
-the two watersheds differ on 0.25 % of the masked pixels and the finished
-crowns on 0.64 % of all pixels (`tools/real_tiles_stage_by_stage.R`) — see
+the two watersheds differ on 0.20 % of the masked pixels and the finished
+crowns on 0.10 % of all pixels (`tools/real_tiles_stage_by_stage.R`) — see
 the README for why that is not a defect in either.
 
 It lives in `tools/` and not `tests/` because it needs Python and pycacumen

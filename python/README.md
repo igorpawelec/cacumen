@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a label raster and as polygons. Pure Python + Numba, no compiled extensions, no external binaries.
 
-> **R users:** the same algorithm is in [`r/`](../r), the rcacumen package. The two packages share this repository and are validated against each other whenever either changes: exactly on the sixty small scenes of the shared synthetic suite and within 0.032 % of pixels on its ten large ones. On the seven real canopy height models of the repository the finished crowns differ on 0.64 % of pixels, because the two watersheds break plateau ties differently.
+> **R users:** the same algorithm is in [`r/`](../r), the rcacumen package. The two packages share this repository and are validated against each other whenever either changes: exactly on all seventy scenes of the shared synthetic suite. On the seven real canopy height models of the repository the finished crowns differ on 0.10 % of pixels, because the two watersheds break plateau ties differently.
 
 ## The problem it solves
 
@@ -24,17 +24,17 @@ pycacumen does not try to get the tops right first. It accepts the surplus and c
 3. **Growing.** Each tree grows greedily, absorbing neighbours while the combined height variance stays under a threshold. When two trees absorb each other, they were one crown — this is where over-detection is undone.
 4. **Arbitration.** Growing runs independently per seed, so two crowns can claim the same region. The claim is settled on the data — the taller tree, the nearer tree, or the better height match — never on iteration order. Only an exact tie, two equally tall trees under the height rule for one, falls to the top that comes first, and both packages list the tops in one order.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 213 are kept as tree tops; and the 212 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/pipeline.png" alt="A 0.5 m canopy height model of a circular sample plot; the same tile with 253 local maxima of which 215 are kept as tree tops; and the 214 crowns delineated from them, drawn as outlines over the height model" width="100%"/>
 
-*A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 213 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 212 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.py`.*
+*A 100 × 100 m tile of a 0.5 m canopy height model (`test_data/chm_150_2014.tif`, a mature stand on a circular sample plot). Left: the input. Middle: 253 local maxima after median smoothing (`hmin` 7 m, 5 px window), of which 215 survive merging within 5 px and screening below 10 m — the filled markers. Right: the 214 crowns grown from them at the default `variance_thresh` of 2. Made by `www/figures.py`.*
 
 ## The one parameter that matters
 
 `variance_thresh` is the height variance (σ², in m²) a single crown may contain. It sets how readily a tree absorbs its neighbours, and therefore how many of the surplus tops are merged back. Everything else has a sensible default; this one you choose per stand.
 
-<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 212, 203 and 123 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
+<img src="https://raw.githubusercontent.com/igorpawelec/cacumen/main/python/www/variance_thresh.png" alt="The same tile delineated at variance_thresh 2, 8 and 20: 214, 205 and 124 crowns; the tree tops absorbed into a neighbouring crown are drawn as hollow rings and cluster where crowns merged" width="100%"/>
 
-*The same 213 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 10 and 90 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them.*
+*The same 215 tree tops grown at `variance_thresh` 2, 8 and 20. Filled markers are tops that ended up as a crown of their own; hollow rings are tops absorbed into a neighbour — 1, 10 and 91 of them. At 2 almost nothing merges and every peak on a broad crown stays a separate tree; at 20 the merging reaches across real crown boundaries in the dense south-east of the plot. The right value lies where the absorbed tops are the ragged-surface duplicates and not the suppressed neighbours, which is a judgement made by looking, and the point of drawing them.*
 
 Two further controls shape the outcome:
 
@@ -155,8 +155,8 @@ cd = CrownDelineator.from_file("big_chm.tif", window=(1000, 500, 2000, 2000))
 |---|---|---|
 | `hmin` | 2.0 | Minimum height (m) for a pixel to be a candidate |
 | `ws` | 3 | Local-maximum window (px) = minimum spacing between tops |
-| `distance` | 5.0 | Merge radius (px). Grouping is transitive — keep below crown diameter |
-| `chm` | `None` | `merge_tops` only: the CHM. With it, a group whose centroid falls on a cell with no data is represented by its highest top; the pipeline passes it |
+| `distance` | 5.0 | Merge radius (px). Grouping is transitive — keep below crown diameter; a warning says when groups stretch over more than five times it |
+| `chm`, `hmin` | `None` | `merge_tops` only: the CHM and the height the tops were detected above. With them, a group whose centroid falls on a cell with no data, or on one not above `hmin`, is represented by its highest top; the pipeline passes both |
 
 **Growing** — `delineate` / `run_all`
 

@@ -24,7 +24,10 @@ disp <- chm; disp[!is.finite(disp)] <- 0   # zeroed only for display
 vmax <- as.numeric(quantile(disp, 0.995))
 sm   <- smooth_chm(chm, ws = 3L, method = "median")
 raw  <- detect_tops(sm, hmin = hmin, ws = ws_tops)
-kept <- screen_tops(sm, merge_tops(raw, distance = merge_d), hmin = screen_h)
+# merged as delineate() merges: with the CHM and the detection threshold, so that a group
+# whose centroid falls on a hole or in a gap keeps its highest top
+kept <- screen_tops(sm, merge_tops(raw, distance = merge_d, chm = sm, hmin = hmin),
+                    hmin = screen_h)
 px   <- as_pixels(kept)
 
 # pixel (row, col) -> map x, y at the pixel centre

@@ -1,5 +1,6 @@
 """Write reference crowns from pycacumen for tools/cross_validate_against_pycacumen.R,
-tools/quick_start_on_test_tiles.R and tools/real_tiles_stage_by_stage.R.
+tools/watershed_against_skimage.R, tools/quick_start_on_test_tiles.R and
+tools/real_tiles_stage_by_stage.R.
 
     pip install "../python[io]"      # pycacumen from this checkout, with rasterio
     python3 tools/generate_pycacumen_reference.py      # from r/
@@ -16,7 +17,8 @@ os.makedirs(OUT, exist_ok=True)
 # The files for the real tiles are written only when rasterio is installed.
 # Left over from an earlier run, they would be held against rcacumen as if
 # they came from the pycacumen installed now.
-for stale in glob.glob(os.path.join(OUT, "real*.csv")) + glob.glob(os.path.join(OUT, "tiles.csv")):
+for stale in (glob.glob(os.path.join(OUT, "real*.csv")) + glob.glob(os.path.join(OUT, "tiles.csv"))
+              + glob.glob(os.path.join(OUT, "watershed_scenes.csv"))):
     os.remove(stale)
 
 rng = np.random.default_rng(11)
@@ -80,6 +82,49 @@ with open(f"{OUT}/meta.csv", "w") as f:
     for k, vt, rule, nc, ps, rr in cases:
         f.write(f"{k},{vt},{rule},{nc},{ps},{rr}\n")
 print(f"{len(cases)} reference cases written to {OUT}/")
+
+# The watershed on its own, against scikit-image's, for
+# tools/watershed_against_skimage.R: 200 small random surfaces, every second
+# one rounded to whole metres so that it is plateaus from edge to edge, two
+# in three with a mask. Each is flooded twice: from markers on the tops the
+# package detects, which is how the method uses the watershed, and from the
+# same number of markers dropped at random inside the mask, where several
+# markers meet on one plateau and the order of flooding decides. One long
+# table rather than a thousand small files.
+from skimage.segmentation import watershed  # noqa: E402
+
+wrng = np.random.default_rng(23)
+scenes = []
+for k in range(200):
+    n, m = (int(v) for v in wrng.integers(30, 61, 2))
+    yy, xx = np.mgrid[0:n, 0:m]
+    surf = np.zeros((n, m))
+    for _ in range(int(wrng.integers(3, 12))):
+        r, c = wrng.integers(0, n), wrng.integers(0, m)
+        surf = np.maximum(surf, wrng.uniform(8, 30) * np.exp(
+            -((yy - r) ** 2 + (xx - c) ** 2) / (2 * wrng.uniform(3, 8) ** 2)))
+    if k % 2 == 0:
+        surf = np.round(surf)
+    surf = smooth_chm(surf.astype(np.float32), ws=3, method="median").astype(np.float32)
+    mask = surf > (1.0 if k % 3 else -1.0)
+    tops = [t for t in as_pixels(detect_tops(surf, hmin=5, ws=5)) if mask[t]]
+    cells = np.argwhere(mask)
+    if not tops or len(cells) < len(tops):
+        continue
+    drops = cells[wrng.choice(len(cells), size=len(tops), replace=False)]
+    cols = [np.full(n * m, k), yy.ravel() + 1, xx.ravel() + 1, surf.ravel(),
+            mask.ravel().astype(int)]
+    for seeds in (tops, drops):
+        markers = np.zeros((n, m), dtype=np.int32)
+        for i, (r, c) in enumerate(seeds, start=1):
+            markers[r, c] = i
+        cols += [markers.ravel(), watershed(-surf, markers=markers, mask=mask).ravel()]
+    scenes.append(np.column_stack(cols))
+np.savetxt(f"{OUT}/watershed_scenes.csv", np.vstack(scenes), delimiter=",",
+           fmt=["%d", "%d", "%d", "%.9g", "%d", "%d", "%d", "%d", "%d"],
+           header="scene,row,col,height,mask,marker_top,label_top,marker_drop,label_drop",
+           comments="")
+print(f"{len(scenes)} watershed scenes written to {OUT}/watershed_scenes.csv")
 
 # The README quick start on the real tiles of the repository: how many tops
 # and crowns pycacumen finds, for tools/quick_start_on_test_tiles.R to hold

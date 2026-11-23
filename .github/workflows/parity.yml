@@ -80,6 +80,11 @@ jobs:
         # pixel in a small scene, or above 0.5 % of pixels in the large ones.
         run: Rscript tools/cross_validate_against_pycacumen.R
 
+      - name: Hold the watershed against scikit-image's
+        # Flooded from the detected tops, the smooth random scenes have to
+        # come out identical; what the plateau scenes differ by is printed.
+        run: Rscript tools/watershed_against_skimage.R
+
       - name: Run the README quick start on every test tile
         # The synthetic scenes above never call merge_tops() or screen_tops().
         # The README's quick start does, and on the real tiles, which have

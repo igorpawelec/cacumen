@@ -155,7 +155,7 @@ Two implementations of one method are only useful if they agree, so this is meas
 
 | Test | Result |
 |---|---|
-| Watershed vs `scikit-image`, 200 random scenes incl. plateaus | **0 of 422,687 px differ** |
+| Watershed vs `scikit-image`, 200 random scenes, flooded from the detected tops | 100 smooth scenes **exact** (0 of 195,857 px); 100 that are all plateau within **0.07 %** (152 of 206,286 px) |
 | Full pipeline vs pycacumen, 70 synthetic scenes, all 3 conflict rules | 60 small scenes **exact**; 10 large crowded ones within **0.032 %** |
 | Crown counts, contested counts | identical throughout |
 | Watershed vs `scikit-image`, 7 **real** CHMs | 375 of 147,368 masked px differ (**0.25 %**) |
@@ -166,6 +166,7 @@ Reproduce it yourself:
 ```bash
 pip install "../python[io]"   # pycacumen from this checkout, with rasterio for the real tiles
 python3 tools/generate_pycacumen_reference.py
+Rscript tools/watershed_against_skimage.R          # the watershed on its own
 Rscript tools/cross_validate_against_pycacumen.R   # the synthetic scenes
 Rscript tools/real_tiles_stage_by_stage.R          # the two rows on real CHMs
 ```
@@ -180,7 +181,7 @@ The synthetic scenes agree exactly; real canopy height models do not, and the ho
 - the mask — identical
 - the watershed — **375 of 147,368 masked pixels differ**
 
-`src/watershed.c` reimplements `skimage.segmentation.watershed` rather than calling it, and on the plateau structure of a real CHM the two break ties differently. Which of the three documented details diverges — heap order, label-on-push, or neighbour order — is not yet established.
+`src/watershed.c` reimplements `skimage.segmentation.watershed` rather than calling it, and on the plateau structure of a real CHM the two break ties differently. Which of the three documented details diverges — heap order, label-on-push, or neighbour order — is not yet established. What is established is where it shows: flooded from the detected tops, random smooth surfaces come out identical and surfaces rounded to whole metres differ on 0.07 % of pixels; with the same number of markers dropped at random, so that several meet on one plateau, 2.4 % of pixels differ (`tools/watershed_against_skimage.R`).
 
 Those 375 pixels become 1,793 differing crown pixels, and unevenly: on `chm_42_2014` 36 watershed pixels become 1,352, on `chm_33_2012` 20 become 206, and on `chm_80_2021` 92 become none. The watershed regions are the units the graph grows over, so moving one boundary pixel can shift a region's mean and variance, flip a merge, and carry a whole region to another crown. Treat any watershed difference as significant however small it looks.
 

@@ -97,7 +97,8 @@ cat(sprintf("large scenes (%d+)   : %d of %s px (%.3f%%), bound %.2f%%\n",
             large_pct, 0.5))
 
 # 0.5% on the large scenes: about twenty times the 0.023% measured when
-# these cases were added, and well under the 1.8% seen on real CHMs. Loose
+# these cases were added, and under the 0.64% seen on real CHMs
+# (tools/real_tiles_stage_by_stage.R). Loose
 # enough not to flag the known plateau divergence, tight enough that a real
 # regression in the growing or the arbitration still fails the run.
 #

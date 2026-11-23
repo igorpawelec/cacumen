@@ -14,7 +14,7 @@ A canopy height model goes in; a crown per tree comes out, as a label raster and
 | Python | [`pycacumen`](python/) | ![latest python tag](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=python-v*&label=) | `pip install --no-deps "git+https://github.com/igorpawelec/cacumen.git#subdirectory=python"` |
 | R | [`rcacumen`](r/) | ![latest r tag](https://img.shields.io/github/v/tag/igorpawelec/cacumen?filter=r-v*&label=) | `remotes::install_github("igorpawelec/cacumen", subdir = "r")` |
 
-The two are checked against each other whenever either changes ([parity workflow](.github/workflows/parity.yml)). On the shared synthetic test suite they produce identical output, pixel for pixel, on the sixty small scenes and differ on 0.032 % of pixels on the ten large, crowded ones. On real canopy height models they agree to within 0.25 % of watershed pixels, because the two watershed implementations break plateau ties differently.
+The two are checked against each other whenever either changes ([parity workflow](.github/workflows/parity.yml)). On the shared synthetic test suite they produce identical output, pixel for pixel, on the sixty small scenes and differ on 0.032 % of pixels on the ten large, crowded ones. On the seven real canopy height models of the repository the two watersheds differ on 0.25 % of the pixels inside the height mask and the finished crowns on 0.64 % of all pixels, because the two watershed implementations break plateau ties differently.
 
 **Authors:** Igor Pawelec, University of Agriculture in Kraków. **License:** GPL-3.0.
 

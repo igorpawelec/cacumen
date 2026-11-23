@@ -1,16 +1,23 @@
-"""Write reference crowns from pycacumen for tools/cross_validate_against_pycacumen.R.
+"""Write reference crowns from pycacumen for tools/cross_validate_against_pycacumen.R,
+tools/quick_start_on_test_tiles.R and tools/real_tiles_stage_by_stage.R.
 
-    pip install pycacumen
-    python3 tools/generate_pycacumen_reference.py
+    pip install "../python[io]"      # pycacumen from this checkout, with rasterio
+    python3 tools/generate_pycacumen_reference.py      # from r/
 
 Copyright (C) 2025 Igor Pawelec. Licence: GPLv3.
 """
+import glob
 import os
 import numpy as np
 from pycacumen import smooth_chm, detect_tops, as_pixels, HierarchicalRegionGrower
 
 OUT = os.path.join("tools", "reference")
 os.makedirs(OUT, exist_ok=True)
+# The files for the real tiles are written only when rasterio is installed.
+# Left over from an earlier run, they would be held against rcacumen as if
+# they came from the pycacumen installed now.
+for stale in glob.glob(os.path.join(OUT, "real*.csv")) + glob.glob(os.path.join(OUT, "tiles.csv")):
+    os.remove(stale)
 
 rng = np.random.default_rng(11)
 cases = []
@@ -81,7 +88,6 @@ print(f"{len(cases)} reference cases written to {OUT}/")
 # dropped and then stopped on it. Needs rasterio, which the array API above
 # does not, so without it this part is skipped rather than failed.
 try:
-    import glob
     from pycacumen import CrownDelineator
     import rasterio  # noqa: F401  (from_file needs it; fail here, not per tile)
 except ImportError as e:
@@ -99,3 +105,41 @@ else:
             crowns = cd.delineate(variance_thresh=2.0)
             f.write(f"{name},{len(cd.tops)},{len(set(np.unique(crowns)) - {0})}\n")
     print(f"{len(tiles)} real tiles written to {OUT}/tiles.csv")
+
+    # The same tiles once more, stage by stage, for
+    # tools/real_tiles_stage_by_stage.R: the heights as read, and what
+    # pycacumen makes of them at every step. Each step of rcacumen can then be
+    # fed pycacumen's own output of the step before, which pins a difference
+    # to the stage that makes it. Read and run as
+    # tools/measure_tie_sensitivity.py reads and runs them, so the two tools
+    # speak of the same crowns.
+    HMIN, WS, SMOOTH_WS, VT, MASK, RULE = 5.0, 5, 3, 8.0, 1.0, "height"
+    with open(f"{OUT}/real.csv", "w") as f:
+        f.write("tile,tops\n")
+        for name, path in sorted(tiles.items()):
+            stem = os.path.splitext(name)[0]
+            with rasterio.open(path) as src:
+                raw = src.read(1).astype(np.float64)
+                nod = src.nodata
+            if nod is not None:
+                raw[raw == nod] = 0.0
+            raw[~np.isfinite(raw)] = 0.0
+            sm = smooth_chm(raw, ws=SMOOTH_WS, method="median")
+            sub = detect_tops(sm, hmin=HMIN, ws=WS)
+            tops = as_pixels(sub)
+            if not tops:
+                continue
+            g = HierarchicalRegionGrower(sm)
+            out = g.run_all(tops, variance_thresh=VT, mask_thresh=MASK,
+                            conflict_rule=RULE)
+            pre = f"{OUT}/real_{stem}"
+            np.savetxt(f"{pre}_chm.csv", raw, delimiter=",", fmt="%.17g")
+            np.savetxt(f"{pre}_sm.csv", sm, delimiter=",", fmt="%.17g")
+            np.savetxt(f"{pre}_sub.csv", np.asarray(sub, float) + 1.0,
+                       delimiter=",", fmt="%.17g")
+            np.savetxt(f"{pre}_mask.csv", g._prepare_mask(MASK).astype(int),
+                       fmt="%d", delimiter=",")
+            np.savetxt(f"{pre}_ws.csv", g.watershed_labels, fmt="%d", delimiter=",")
+            np.savetxt(f"{pre}_out.csv", out, fmt="%d", delimiter=",")
+            f.write(f"{stem},{len(tops)}\n")
+    print(f"stage-by-stage reference for the real tiles written to {OUT}/real.csv")

@@ -158,20 +158,21 @@ Two implementations of one method are only useful if they agree, so this is meas
 | Full pipeline vs pycacumen, 70 synthetic scenes, all 3 conflict rules | 60 small scenes **exact**; 10 large crowded ones within **0.032 %** |
 | Crown counts, contested counts | identical throughout |
 | Watershed vs `scikit-image`, 7 **real** CHMs | 375 of 147,368 masked px differ (**0.25 %**) |
-| Full pipeline vs pycacumen, same 7 real CHMs | 5,142 of 281,602 px differ (**1.8 %**) |
+| Full pipeline vs pycacumen, same 7 real CHMs | 1,793 of 281,602 px differ (**0.64 %**) |
 
 Reproduce it yourself:
 
 ```bash
 pip install ../python          # pycacumen from this checkout
 python3 tools/generate_pycacumen_reference.py
-Rscript tools/cross_validate_against_pycacumen.R
+Rscript tools/cross_validate_against_pycacumen.R   # the synthetic scenes
+Rscript tools/real_tiles_stage_by_stage.R          # the two rows on real CHMs
 ```
 
 <details>
 <summary><b>Where the last 0.25 % goes</b></summary>
 
-The synthetic scenes agree exactly; real canopy height models do not, and the honest version is that the equality holds on the test suite rather than in general. Measured stage by stage, each stage fed pycacumen's own output for the previous one:
+The synthetic scenes agree exactly; real canopy height models do not, and the honest version is that the equality holds on the test suite rather than in general. Measured stage by stage on the seven tiles of `test_data`, each stage fed pycacumen's own output for the previous one (`tools/real_tiles_stage_by_stage.R`: median smoothing over 3 px, tops above 5 m in a 5 px window, variance threshold 8, mask at 1 m):
 
 - `smooth_chm` — identical to the last bit
 - `detect_tops` — agrees to 2.8e-14
@@ -180,7 +181,7 @@ The synthetic scenes agree exactly; real canopy height models do not, and the ho
 
 `src/watershed.c` reimplements `skimage.segmentation.watershed` rather than calling it, and on the plateau structure of a real CHM the two break ties differently. Which of the three documented details diverges — heap order, label-on-push, or neighbour order — is not yet established.
 
-Those 375 pixels become 5,142 differing crown pixels, and on `chm_33_2012` 20 watershed pixels become 3,437: the watershed regions are the units the graph grows over, so moving one boundary pixel shifts a region's mean and variance, flips a merge, and carries a whole region to another crown. Treat any watershed difference as significant however small it looks.
+Those 375 pixels become 1,793 differing crown pixels, and unevenly: on `chm_42_2014` 36 watershed pixels become 1,352, on `chm_33_2012` 20 become 206, and on `chm_80_2021` 92 become none. The watershed regions are the units the graph grows over, so moving one boundary pixel can shift a region's mean and variance, flip a merge, and carry a whole region to another crown. Treat any watershed difference as significant however small it looks.
 
 Two details make that agreement possible, and both are easy to get wrong in a port:
 

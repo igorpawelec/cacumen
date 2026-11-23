@@ -11,7 +11,7 @@
 
 A canopy height model goes in; a crown per tree comes out, as a label raster and as polygons. Pure Python + Numba, no compiled extensions, no external binaries.
 
-> **R users:** the same algorithm is in [`r/`](../r), the rcacumen package. The two packages share this repository and are validated against each other whenever either changes: exactly on the shared synthetic suite, and to within 0.25 % of watershed pixels on real canopy height models, where the two break plateau ties differently.
+> **R users:** the same algorithm is in [`r/`](../r), the rcacumen package. The two packages share this repository and are validated against each other whenever either changes: exactly on the sixty small scenes of the shared synthetic suite and within 0.032 % of pixels on its ten large ones. On the seven real canopy height models of the repository the finished crowns differ on 0.64 % of pixels, because the two watersheds break plateau ties differently.
 
 ## The problem it solves
 

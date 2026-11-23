@@ -23,8 +23,11 @@ jobs:
     #
     # Scope, stated plainly: this covers the 70 synthetic scenes the
     # generator builds. The 60 small ones must match exactly, the 10 large
-    # crowded ones within 0.5 % of pixels. It does not cover agreement on
-    # real canopy height models, which is a separate open question.
+    # crowded ones within 0.5 % of pixels. On the seven real tiles of the
+    # repository, smoothing, detection and mask must agree as well; what the
+    # watershed and the finished crowns differ by there is measured and
+    # printed, not bounded, because the two watersheds break plateau ties
+    # differently.
     runs-on: ubuntu-latest
     name: rcacumen against pycacumen
 
@@ -83,3 +86,10 @@ jobs:
         # holes, two of the seven stopped rcacumen 0.5.0. Runs the call on
         # each tile and holds the number of tops against pycacumen's.
         run: Rscript tools/quick_start_on_test_tiles.R
+
+      - name: Measure the agreement on the real tiles, stage by stage
+        # Smoothing, detection and mask have to agree on every tile and fail
+        # the job when they do not. The watershed and the finished crowns are
+        # reported: these are the figures the README quotes for real canopy
+        # height models.
+        run: Rscript tools/real_tiles_stage_by_stage.R

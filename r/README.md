@@ -193,15 +193,15 @@ Two details make that agreement possible, and both are easy to get wrong in a po
 <details>
 <summary><b>Notes on behaviour</b></summary>
 
-**Tree detection is unstable on plateaus, and the rest of the pipeline is not.** This is a property of the method, not of either implementation, and it matters more than the 0.25 % above. Adding 1 nanometre of noise to a CHM — far below any physical or instrumental meaning, and far below the single precision the data is stored in — changes nothing about the canopy, but it does break plateau ties differently. Measured over the seven real CHMs, eight repeats each (`tools/measure_tie_sensitivity.py`):
+**Tree detection is unstable on plateaus, and the growing is sensitive to ties as well.** This is a property of the method, not of either implementation, and it matters more than the 0.25 % above. Noise far below any physical or instrumental meaning changes nothing about the canopy, but it does break plateau ties differently. A nanometre is enough to move the tops: `detect_tops` works in double precision and sees it, while the grower stores its surface in single precision and is handed the same surface every time. Ten micrometres, a few units in the last place of a single-precision height, reach the watershed and the region growing too. Measured over the seven real CHMs, eight repeats each (`tools/measure_tie_sensitivity.py`):
 
 | | worst case |
 |---|---|
-| tree tops detected | **3 to 30 fewer**, some moving up to **13 px** |
-| canopy pixels changing crown, tops free to move | up to **62 %** |
-| canopy pixels changing crown, tops held fixed | **0 %**, on every scene |
+| tree tops detected, 1 nm of noise | **3 to 32 fewer**, in every repeat on every scene |
+| canopy pixels changing crown, 1 nm of noise, tops free to move | up to **85 %** (19 to 85 % by scene) |
+| canopy pixels changing crown, 10 µm of noise, tops held fixed | up to **17 %** (2.5 to 17 % by scene) |
 
-Read that last row carefully: with the tree tops pinned, the watershed, the region growing and the conflict arbitration are perfectly stable. All of the instability enters through `detect_tops`. The tree count falls consistently rather than randomly, which suggests exact ties inflate it — a plateau of equal maxima yields tops that a hair of noise removes — though that mechanism is a hypothesis and has not been confirmed.
+Most of the instability enters through `detect_tops`: at a nanometre the grower's input does not change at all, so every pixel in the second row moved because a top did. The third row is what is left with the tops pinned, and it is not nothing: the watershed and the region growing answer to ties on their own. That is the sensitivity that separates rcacumen from pycacumen above. The tree count falls consistently rather than randomly, which suggests exact ties inflate it — a plateau of equal maxima yields tops that a hair of noise removes — though that mechanism is a hypothesis and has not been confirmed.
 
 The practical consequence: **a tree count from this method carries an implementation-defined component**, and so do crown boundaries. Report the smoothing and detection parameters, and do not compare counts across implementations or library versions without re-running both.
 

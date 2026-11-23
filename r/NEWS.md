@@ -1,3 +1,20 @@
+# rcacumen 0.5.2
+
+## Fixed
+
+* **A group of merged tops whose centroid fell on a hole left no crown.**
+  `merge_tops()` replaces tops closer than the radius by their centroid, and on
+  a CHM with holes the centroid can fall on a cell with no data. Since 0.5.1
+  such a top is dropped by `screen_tops()` instead of stopping the run, but the
+  trees it stood for got no crown. `merge_tops()` takes the CHM as an optional
+  `chm` argument now and represents such a group by the highest of its own
+  tops; `delineate()` passes it. On the tiles of `test_data` with the README's
+  parameters one tree comes back on each of `chm_150_2023.tif` (214 to 215
+  tops) and `chm_33_2012.tif` (391 to 392); the other five are unchanged, and
+  pycacumen 0.6.3 finds the same tops. `merge_tops(tops, distance)` without the
+  CHM does what it did.
+
+
 # rcacumen 0.5.1
 
 ## Fixed

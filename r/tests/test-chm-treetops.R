@@ -162,4 +162,39 @@ res <- delineate(hs, smooth_ws = 3, hmin = 5, detect_ws = 3, merge_distance = 7,
 ok(nrow(res$tops) == 1L && res$tops[1, 2] > 22 && sum(res$crowns > 0) > 20,
    "delineate() keeps a crown for the group, grown from the taller tree")
 
+cat("rasters narrower than the window\n")
+
+# Until 0.5.3 these stopped with "subscript out of bounds": the reflected
+# padding asked for more cells than a single row has. The expected values
+# are what pycacumen returns for the same numbers (its coordinates plus 1).
+thin <- matrix(c(1, 5, 2, 7, 3, 9, 4, 6, 2, 8, 1, 3, 2), nrow = 1)
+ok(isTRUE(all.equal(detect_tops(thin, hmin = 0.5, ws = 5), rbind(c(1, 6), c(1, 10)))),
+   "detect_tops() on a single row, window 5")
+ok(isTRUE(all.equal(detect_tops(t(thin), hmin = 0.5, ws = 5), rbind(c(6, 1), c(10, 1)))),
+   "detect_tops() on a single column, window 5")
+ok(isTRUE(all.equal(as.vector(smooth_chm(thin, ws = 5, method = "median")),
+                    c(2, 2, 3, 5, 4, 6, 4, 6, 4, 3, 2, 2, 2))),
+   "median smoothing of a single row, window 5")
+two <- rbind(c(3, 8, 1, 9, 2, 7, 4), c(6, 2, 9, 1, 5, 3, 8))
+ok(isTRUE(all.equal(detect_tops(two, hmin = 0.5, ws = 5),
+                    rbind(c(1, 4), c(2, 3), c(2, 7)))),
+   "detect_tops() on two rows, window 5")
+ok(isTRUE(all.equal(smooth_chm(two, ws = 5, method = "mean"),
+                    rbind(c(4.84, 4.8, 4.6, 4.56, 4.96, 5.08, 5.16),
+                          c(4.76, 4.8, 4.6, 4.84, 4.84, 5.12, 5.04)))),
+   "mean smoothing of two rows, window 5")
+
+cat("order of the tops\n")
+
+# pycacumen holds itself to the same two orders (python/tests/test_treetops.py),
+# which is what makes a crown id mean the same tree in both packages.
+# Two peaks: read row by row the one in row 5 comes first, read column by
+# column the one in column 5 would.
+oo <- matrix(0, 30, 30); oo[5, 20] <- 20; oo[10, 5] <- 25
+ok(isTRUE(all.equal(detect_tops(oo, hmin = 5, ws = 3), rbind(c(5, 20), c(10, 5)))),
+   "tops come in the order of a row-by-row reading")
+og <- rbind(c(10, 10), c(30, 30), c(11, 10), c(50, 50), c(31, 30))
+ok(isTRUE(all.equal(merge_tops(og, 2), rbind(c(10.5, 10), c(30.5, 30), c(50, 50)))),
+   "merged groups come in the order of their first member")
+
 cat("\nall chm/treetops tests passed\n")

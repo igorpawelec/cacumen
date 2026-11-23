@@ -66,12 +66,17 @@ smooth_chm <- function(chm, ws = 3L, method = c("median", "mean", "gaussian", "m
   .focal(chm, ws, fun)
 }
 
-# Reflected padding, as scipy.ndimage uses by default.
+# Reflected padding, as scipy.ndimage uses by default (d c b a | a b c d |
+# d c b a). The index folds as often as it has to: on a raster narrower
+# than the padding, a single row or column for one, the reflection runs
+# past the far edge and back, and a plain "the first p cells, reversed"
+# asked for cells that are not there.
 .pad_reflect <- function(m, p) {
-  nr <- nrow(m); nc <- ncol(m)
-  ri <- c(rev(seq_len(p)), seq_len(nr), nr - seq_len(p) + 1L)
-  ci <- c(rev(seq_len(p)), seq_len(nc), nc - seq_len(p) + 1L)
-  m[ri, ci, drop = FALSE]
+  fold <- function(n) {
+    j <- (seq.int(1L - p, n + p) - 1L) %% (2L * n)
+    ifelse(j < n, j + 1L, 2L * n - j)
+  }
+  m[fold(nrow(m)), fold(ncol(m)), drop = FALSE]
 }
 
 .focal <- function(m, ws, fun) {

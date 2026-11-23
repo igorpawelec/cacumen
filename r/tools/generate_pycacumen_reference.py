@@ -10,7 +10,8 @@ Copyright (C) 2025 Igor Pawelec. Licence: GPLv3.
 import glob
 import os
 import numpy as np
-from pycacumen import smooth_chm, detect_tops, as_pixels, HierarchicalRegionGrower
+from pycacumen import (smooth_chm, detect_tops, merge_tops, as_pixels,
+                       HierarchicalRegionGrower)
 
 OUT = os.path.join("tools", "reference")
 os.makedirs(OUT, exist_ok=True)
@@ -18,7 +19,8 @@ os.makedirs(OUT, exist_ok=True)
 # Left over from an earlier run, they would be held against rcacumen as if
 # they came from the pycacumen installed now.
 for stale in (glob.glob(os.path.join(OUT, "real*.csv")) + glob.glob(os.path.join(OUT, "tiles.csv"))
-              + glob.glob(os.path.join(OUT, "watershed_scenes.csv"))):
+              + glob.glob(os.path.join(OUT, "watershed_scenes.csv"))
+              + glob.glob(os.path.join(OUT, "merge_*.csv"))):
     os.remove(stale)
 
 rng = np.random.default_rng(11)
@@ -75,8 +77,43 @@ for k in range(70):
     # detect_tops -> grow_crowns handoff went unexercised.
     np.savetxt(f"{OUT}/sub_{k}.csv", np.asarray(sub, float) + 1.0,
                delimiter=",", fmt="%.17g")
+    # merge_tops on the same tops, with the CHM, for rcacumen to return row
+    # for row: the same groups, in the same order.
+    np.savetxt(f"{OUT}/merged_{k}.csv", merge_tops(sub, distance=5.0, chm=sm) + 1.0,
+               delimiter=",", fmt="%.17g")
     np.savetxt(f"{OUT}/out_{k}.csv", out, fmt="%d", delimiter=",")
     cases.append((k, vt, rule, g.n_contested, int(protect), int(retry)))
+
+# merge_tops on its own, on cases made to reach what the scenes above do
+# not: a CHM of whole metres with a third of its cells empty, and tops close
+# enough to merge, so that centroids land on holes and equally high tops
+# compete to stand in for them. Three long tables, one row per cell or top.
+mrng = np.random.default_rng(31)
+m_chm, m_tops, m_out, fell_back = [], [], [], 0
+for case in range(80):
+    n = int(mrng.integers(10, 16))
+    mchm = mrng.integers(5, 26, (n, n)).astype(float)
+    mchm[mrng.random((n, n)) < 0.33] = np.nan
+    mtops = mrng.integers(0, n, (int(mrng.integers(6, 15)), 2)) + 0.5
+    dist = float(mrng.integers(2, 5))
+    merged = merge_tops(mtops, distance=dist, chm=mchm)
+    plain = merge_tops(mtops, distance=dist)
+    fell_back += int((merged != plain).any(axis=1).sum())
+    rr, cc = np.mgrid[0:n, 0:n]
+    m_chm.append(np.column_stack([np.full(n * n, case), rr.ravel() + 1, cc.ravel() + 1,
+                                  mchm.ravel()]))
+    m_tops.append(np.column_stack([np.full(len(mtops), case), mtops + 1.0,
+                                   np.full(len(mtops), dist)]))
+    m_out.append(np.column_stack([np.full(len(merged), case), merged + 1.0]))
+if fell_back == 0:
+    raise SystemExit("no merge case reaches the fall-back on a hole; the cases prove nothing")
+np.savetxt(f"{OUT}/merge_chm.csv", np.vstack(m_chm), delimiter=",", fmt="%.17g",
+           header="case,row,col,height", comments="")
+np.savetxt(f"{OUT}/merge_tops.csv", np.vstack(m_tops), delimiter=",", fmt="%.17g",
+           header="case,row,col,distance", comments="")
+np.savetxt(f"{OUT}/merge_out.csv", np.vstack(m_out), delimiter=",", fmt="%.17g",
+           header="case,row,col", comments="")
+print(f"80 merge cases written to {OUT}/merge_*.csv, {fell_back} groups stood on their highest top")
 
 with open(f"{OUT}/meta.csv", "w") as f:
     for k, vt, rule, nc, ps, rr in cases:

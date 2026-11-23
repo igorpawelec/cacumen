@@ -168,3 +168,18 @@ class TestEvenWindowRejected:
         sc = self._scene()
         assert len(detect_tops(sc, hmin=5, ws=5)) == \
             len(detect_tops(sc[:, ::-1], hmin=5, ws=5))
+
+
+class TestOrder:
+    """rcacumen holds itself to the same two orders (r/tests/test-chm-treetops.R),
+    which is what makes a crown id mean the same tree in both packages."""
+
+    def test_tops_come_in_the_order_of_a_row_by_row_reading(self):
+        chm = np.zeros((30, 30))
+        chm[4, 19] = 20.0
+        chm[9, 4] = 25.0
+        assert detect_tops(chm, hmin=5, ws=3).tolist() == [[4.0, 19.0], [9.0, 4.0]]
+
+    def test_merged_groups_come_in_the_order_of_their_first_member(self):
+        tops = np.array([[10, 10], [30, 30], [11, 10], [50, 50], [31, 30]], float)
+        assert merge_tops(tops, distance=2.0).tolist() == [[10.5, 10.0], [30.5, 30.0], [50.0, 50.0]]

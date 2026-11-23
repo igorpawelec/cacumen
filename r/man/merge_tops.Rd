@@ -18,7 +18,9 @@ them when several are equally high). Without it every group is replaced
 by its centroid, wherever that falls.}
 }
 \value{
-A two-column matrix with at most as many rows as \code{tops}.
+A two-column matrix with at most as many rows as \code{tops}. The
+groups come in the order of their first member in \code{tops}, as pycacumen
+returns them.
 }
 \description{
 Tops closer than \code{distance} are almost always one tree seen through

@@ -18,7 +18,9 @@ between tops. Over-detection is the safer error: \code{\link[=delineate]{delinea
 surplus tops back together, but a top never detected is a tree lost.}
 }
 \value{
-A two-column numeric matrix of (row, col) positions, 1-based.
+A two-column numeric matrix of (row, col) positions, 1-based, in the
+order of the first cell of each maximum when the raster is read row by
+row, which is the order pycacumen lists them in.
 Zero detections give a 0 x 2 matrix, not \code{NULL}, so callers can index
 \verb{[, 1]} unconditionally.
 }

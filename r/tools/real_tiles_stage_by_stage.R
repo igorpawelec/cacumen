@@ -81,8 +81,8 @@ for (i in seq_len(nrow(idx))) {
   if (nrow(own) != nrow(sub)) {
     fail <- c(fail, sprintf("%s: %d tops, pycacumen has %d", stem, nrow(own), nrow(sub)))
   } else {
-    a <- own[order(own[, 1], own[, 2]), , drop = FALSE]
-    b <- sub[order(sub[, 1], sub[, 2]), , drop = FALSE]
+    # row for row: the two packages list their tops in one order
+    a <- own; b <- sub
     top_dev <- max(top_dev, max(abs(a - b)))
     # Close is not enough at a pixel boundary: a top that floors to another
     # pixel grows another crown.

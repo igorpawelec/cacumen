@@ -13,7 +13,9 @@
 #'   between tops. Over-detection is the safer error: [delineate()] merges
 #'   surplus tops back together, but a top never detected is a tree lost.
 #'
-#' @return A two-column numeric matrix of (row, col) positions, 1-based.
+#' @return A two-column numeric matrix of (row, col) positions, 1-based, in the
+#'   order of the first cell of each maximum when the raster is read row by
+#'   row, which is the order pycacumen lists them in.
 #'   Zero detections give a 0 x 2 matrix, not `NULL`, so callers can index
 #'   `[, 1]` unconditionally.
 #'
@@ -69,7 +71,13 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
     sc[zero] <- as.vector(rowsum(cc, g, reorder = TRUE))[zero]
     sw[zero] <- as.vector(tabulate(g, nbins = nlab))[zero]
   }
-  cbind(sr / sw, sc / sw)
+  # In the order pycacumen lists them: by the first cell of each maximum,
+  # reading the raster row by row. The labelling above numbers them as it
+  # meets them, column by column, so without this the two packages gave the
+  # same tops in different orders, and the crowns grown from them the same
+  # shapes under different ids.
+  first <- as.vector(tapply((rr - 1L) * ncol(chm) + cc, g, min))
+  cbind(sr / sw, sc / sw)[order(first), , drop = FALSE]
 }
 
 .empty_tops <- function() matrix(numeric(0), nrow = 0, ncol = 2)
@@ -129,7 +137,9 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #'   them when several are equally high). Without it every group is replaced
 #'   by its centroid, wherever that falls.
 #'
-#' @return A two-column matrix with at most as many rows as `tops`.
+#' @return A two-column matrix with at most as many rows as `tops`. The
+#'   groups come in the order of their first member in `tops`, as pycacumen
+#'   returns them.
 #' @export
 merge_tops <- function(tops, distance = 5, chm = NULL) {
   tops <- .as_tops(tops)
@@ -148,14 +158,17 @@ merge_tops <- function(tops, distance = 5, chm = NULL) {
     }
   }
   g <- vapply(seq_len(n), find, integer(1))
+  # Number the groups by their first member, which is the order pycacumen
+  # returns them in; the root ids above depend on how the unions happened
+  # to run.
+  g <- match(g, unique(g))
   out <- cbind(as.vector(rowsum(tops[, 1], g, reorder = TRUE)) / as.vector(table(g)),
                as.vector(rowsum(tops[, 2], g, reorder = TRUE)) / as.vector(table(g)))
   if (!is.null(chm)) {
     chm <- as.matrix(chm)
-    ids <- sort(unique(g))              # the order rowsum(reorder = TRUE) gives
     h_tops <- .height_at(chm, tops)
     for (k in which(is.na(.height_at(chm, out)))) {
-      idx <- which(g == ids[k])
+      idx <- which(g == k)              # rowsum(reorder = TRUE) keeps 1, 2, ...
       if (length(idx) > 1L && any(!is.na(h_tops[idx])))
         out[k, ] <- tops[idx[which.max(h_tops[idx])], ]
     }

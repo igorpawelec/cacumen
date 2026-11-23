@@ -70,7 +70,9 @@ def detect_tops(chm, hmin=2.0, ws=3):
     Returns
     -------
     tops : ndarray, shape (n, 2), dtype float64
-        Subpixel (row, column) coordinates. Empty gives shape (0, 2).
+        Subpixel (row, column) coordinates. Empty gives shape (0, 2). They
+        come in the order of the first cell of each maximum when the raster
+        is read row by row; rcacumen lists them in the same order.
     """
     ndimage = _ensure_scipy()
     chm = np.asarray(chm)
@@ -152,6 +154,8 @@ def merge_tops(tops, distance=5.0, chm=None):
     Returns
     -------
     merged : ndarray, shape (m, 2), m <= n
+        The groups in the order of their first member in *tops*; rcacumen
+        returns them in the same order.
     """
     try:
         from scipy.spatial import cKDTree

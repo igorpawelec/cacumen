@@ -29,7 +29,7 @@ if (ncol(meta) != 6L || nrow(meta) == 0L)
        call. = FALSE)
 
 bad <- 0L; diff_px <- 0L; tot_px <- 0L; contested_bad <- 0L
-top_bad <- 0L; top_dev <- 0
+top_bad <- 0L; top_dev <- 0; merge_bad <- 0L
 # Cases 0-59 are small and sparse and have always matched exactly; cases
 # 60-69 are large and crowded, and reproduce in synthetic form the plateau
 # divergence measured on real CHMs. Holding both to equality would leave CI
@@ -59,10 +59,18 @@ for (i in seq_len(nrow(meta))) {
     cat(sprintf("  case %d: R found %d tops, pycacumen %d\n", k,
                 nrow(own), nrow(sub)))
   } else {
-    a <- own[order(own[, 1], own[, 2]), , drop = FALSE]
-    b <- sub[order(sub[, 1], sub[, 2]), , drop = FALSE]
-    top_dev <- max(top_dev, max(abs(a - b)))
+    # Row for row, not sorted first: since rcacumen 0.5.3 the two packages
+    # list their tops in one order, which is what makes a crown id mean the
+    # same tree in both.
+    top_dev <- max(top_dev, max(abs(own - sub)))
   }
+  # merge_tops() on pycacumen's tops, against pycacumen's own merge: the same
+  # groups in the same order. No scene of this suite puts a centroid on a
+  # hole; the merge cases after the loop do.
+  mg <- rd("merged"); if (ncol(mg) == 1L) mg <- t(mg)
+  own_m <- merge_tops(sub, 5, chm = sm)
+  if (nrow(own_m) != nrow(mg) || max(abs(own_m - mg)) >= 1e-9)
+    merge_bad <- merge_bad + 1L
 
   got <- grow_crowns(sm, tops, variance_thresh = meta$vt[i], mask_thresh = 1,
                      conflict_rule = as.character(meta$rule[i]),
@@ -83,12 +91,34 @@ for (i in seq_len(nrow(meta))) {
   if (attr(got, "n_contested") != meta$n_contested[i]) contested_bad <- contested_bad + 1L
 }
 
+# merge_tops() where centroids land on holes and equally high tops compete:
+# the rows pycacumen returns, in its order.
+m_chm <- utils::read.csv(file.path(dir, "merge_chm.csv"), na.strings = c("nan", "NA", "NaN"))
+m_tops <- utils::read.csv(file.path(dir, "merge_tops.csv"))
+m_out <- utils::read.csv(file.path(dir, "merge_out.csv"))
+merge_cases <- sort(unique(m_tops$case)); merge_case_bad <- 0L; merge_fell <- 0L
+for (cs in merge_cases) {
+  cells <- m_chm[m_chm$case == cs, ]
+  chm_c <- matrix(NA_real_, max(cells$row), max(cells$col))
+  chm_c[cbind(cells$row, cells$col)] <- cells$height
+  tp <- m_tops[m_tops$case == cs, ]
+  want <- as.matrix(m_out[m_out$case == cs, c("row", "col")]); dimnames(want) <- NULL
+  got <- merge_tops(cbind(tp$row, tp$col), tp$distance[1], chm = chm_c)
+  if (nrow(got) != nrow(want) || max(abs(got - want)) >= 1e-9)
+    merge_case_bad <- merge_case_bad + 1L
+  merge_fell <- merge_fell +
+    sum(rowSums(got != merge_tops(cbind(tp$row, tp$col), tp$distance[1])) > 0)
+}
+
 cat(sprintf("\ncases                : %d\n", nrow(meta)))
 cat(sprintf("cases differing      : %d\n", bad))
 cat(sprintf("contested mismatches : %d\n", contested_bad))
 cat(sprintf("pixels differing     : %d of %s\n", diff_px, format(tot_px, big.mark = ",")))
 cat(sprintf("top-count mismatches : %d\n", top_bad))
 cat(sprintf("max top deviation    : %.3e px\n", top_dev))
+cat(sprintf("merge mismatches     : %d\n", merge_bad))
+cat(sprintf("merge cases          : %d, %d groups on their highest top, %d mismatches\n",
+            length(merge_cases), merge_fell, merge_case_bad))
 large_pct <- if (large_px > 0) 100 * large_diff / large_px else 0
 cat(sprintf("small scenes (0-%d)  : %d differing, must be 0\n",
             SMALL_MAX, small_bad))
@@ -115,7 +145,13 @@ if (large_pct > 0.5)
 if (top_bad > 0L)
   fail <- c(fail, sprintf("%d scene(s) disagree on the tree-top count", top_bad))
 if (top_dev >= 1e-9)
-  fail <- c(fail, sprintf("tree tops deviate by %.3e px", top_dev))
+  fail <- c(fail, sprintf("tree tops deviate by %.3e px, or come in another order", top_dev))
+if (merge_bad > 0L)
+  fail <- c(fail, sprintf("%d scene(s) disagree on the merged tops or their order", merge_bad))
+if (merge_case_bad > 0L)
+  fail <- c(fail, sprintf("%d merge case(s) disagree with pycacumen", merge_case_bad))
+if (merge_fell == 0L)
+  fail <- c(fail, "no merge case reaches the fall-back on a hole")
 if (contested_bad > 0L)
   fail <- c(fail, sprintf("%d contested-count mismatch(es)", contested_bad))
 

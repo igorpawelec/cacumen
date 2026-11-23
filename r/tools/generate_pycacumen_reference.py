@@ -9,6 +9,8 @@ Copyright (C) 2025 Igor Pawelec. Licence: GPLv3.
 """
 import glob
 import os
+import warnings
+
 import numpy as np
 from pycacumen import (smooth_chm, detect_tops, merge_tops, as_pixels,
                        HierarchicalRegionGrower)
@@ -79,15 +81,19 @@ for k in range(70):
                delimiter=",", fmt="%.17g")
     # merge_tops on the same tops, with the CHM, for rcacumen to return row
     # for row: the same groups, in the same order.
-    np.savetxt(f"{OUT}/merged_{k}.csv", merge_tops(sub, distance=5.0, chm=sm) + 1.0,
-               delimiter=",", fmt="%.17g")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")           # chains are the point of a distance of 5 here
+        merged_k = merge_tops(sub, distance=5.0, chm=sm, hmin=5.0)
+    np.savetxt(f"{OUT}/merged_{k}.csv", merged_k + 1.0, delimiter=",", fmt="%.17g")
     np.savetxt(f"{OUT}/out_{k}.csv", out, fmt="%d", delimiter=",")
     cases.append((k, vt, rule, g.n_contested, int(protect), int(retry)))
 
 # merge_tops on its own, on cases made to reach what the scenes above do
-# not: a CHM of whole metres with a third of its cells empty, and tops close
-# enough to merge, so that centroids land on holes and equally high tops
-# compete to stand in for them. Three long tables, one row per cell or top.
+# not: a CHM of whole metres with a third of its cells empty, tops close
+# enough to merge and a detection threshold in the middle of the heights, so
+# that centroids land on holes and on cells below the threshold, and equally
+# high tops compete to stand in for them. Three long tables, one row per cell
+# or top.
 mrng = np.random.default_rng(31)
 m_chm, m_tops, m_out, fell_back = [], [], [], 0
 for case in range(80):
@@ -96,21 +102,24 @@ for case in range(80):
     mchm[mrng.random((n, n)) < 0.33] = np.nan
     mtops = mrng.integers(0, n, (int(mrng.integers(6, 15)), 2)) + 0.5
     dist = float(mrng.integers(2, 5))
-    merged = merge_tops(mtops, distance=dist, chm=mchm)
-    plain = merge_tops(mtops, distance=dist)
+    low = float(mrng.integers(8, 18))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        merged = merge_tops(mtops, distance=dist, chm=mchm, hmin=low)
+        plain = merge_tops(mtops, distance=dist)
     fell_back += int((merged != plain).any(axis=1).sum())
     rr, cc = np.mgrid[0:n, 0:n]
     m_chm.append(np.column_stack([np.full(n * n, case), rr.ravel() + 1, cc.ravel() + 1,
                                   mchm.ravel()]))
     m_tops.append(np.column_stack([np.full(len(mtops), case), mtops + 1.0,
-                                   np.full(len(mtops), dist)]))
+                                   np.full(len(mtops), dist), np.full(len(mtops), low)]))
     m_out.append(np.column_stack([np.full(len(merged), case), merged + 1.0]))
 if fell_back == 0:
     raise SystemExit("no merge case reaches the fall-back on a hole; the cases prove nothing")
 np.savetxt(f"{OUT}/merge_chm.csv", np.vstack(m_chm), delimiter=",", fmt="%.17g",
            header="case,row,col,height", comments="")
 np.savetxt(f"{OUT}/merge_tops.csv", np.vstack(m_tops), delimiter=",", fmt="%.17g",
-           header="case,row,col,distance", comments="")
+           header="case,row,col,distance,hmin", comments="")
 np.savetxt(f"{OUT}/merge_out.csv", np.vstack(m_out), delimiter=",", fmt="%.17g",
            header="case,row,col", comments="")
 print(f"80 merge cases written to {OUT}/merge_*.csv, {fell_back} groups stood on their highest top")
@@ -218,6 +227,14 @@ else:
             np.savetxt(f"{pre}_chm.csv", raw, delimiter=",", fmt="%.17g")
             np.savetxt(f"{pre}_sm.csv", sm, delimiter=",", fmt="%.17g")
             np.savetxt(f"{pre}_sub.csv", np.asarray(sub, float) + 1.0,
+                       delimiter=",", fmt="%.17g")
+            # The same tile in a precision its values do not fit (x 1.1, in double).
+            # The centre of a plateau two cells long is then a half give or take
+            # the last bit, and which way it falls differs between the packages;
+            # both have to seed the same cell all the same.
+            sm11 = smooth_chm(raw * 1.1, ws=SMOOTH_WS, method="median")
+            np.savetxt(f"{pre}_sub11.csv",
+                       np.asarray(detect_tops(sm11, hmin=2.0, ws=3), float) + 1.0,
                        delimiter=",", fmt="%.17g")
             np.savetxt(f"{pre}_mask.csv", g._prepare_mask(MASK).astype(int),
                        fmt="%d", delimiter=",")

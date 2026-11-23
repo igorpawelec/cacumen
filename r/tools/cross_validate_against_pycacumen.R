@@ -68,7 +68,7 @@ for (i in seq_len(nrow(meta))) {
   # groups in the same order. No scene of this suite puts a centroid on a
   # hole; the merge cases after the loop do.
   mg <- rd("merged"); if (ncol(mg) == 1L) mg <- t(mg)
-  own_m <- merge_tops(sub, 5, chm = sm)
+  own_m <- suppressWarnings(merge_tops(sub, 5, chm = sm, hmin = 5))
   if (nrow(own_m) != nrow(mg) || max(abs(own_m - mg)) >= 1e-9)
     merge_bad <- merge_bad + 1L
 
@@ -91,7 +91,8 @@ for (i in seq_len(nrow(meta))) {
   if (attr(got, "n_contested") != meta$n_contested[i]) contested_bad <- contested_bad + 1L
 }
 
-# merge_tops() where centroids land on holes and equally high tops compete:
+# merge_tops() where centroids land on holes or below the detection threshold
+# and equally high tops compete:
 # the rows pycacumen returns, in its order.
 m_chm <- utils::read.csv(file.path(dir, "merge_chm.csv"), na.strings = c("nan", "NA", "NaN"))
 m_tops <- utils::read.csv(file.path(dir, "merge_tops.csv"))
@@ -103,11 +104,12 @@ for (cs in merge_cases) {
   chm_c[cbind(cells$row, cells$col)] <- cells$height
   tp <- m_tops[m_tops$case == cs, ]
   want <- as.matrix(m_out[m_out$case == cs, c("row", "col")]); dimnames(want) <- NULL
-  got <- merge_tops(cbind(tp$row, tp$col), tp$distance[1], chm = chm_c)
+  got <- suppressWarnings(merge_tops(cbind(tp$row, tp$col), tp$distance[1], chm = chm_c,
+                                     hmin = tp$hmin[1]))
   if (nrow(got) != nrow(want) || max(abs(got - want)) >= 1e-9)
     merge_case_bad <- merge_case_bad + 1L
   merge_fell <- merge_fell +
-    sum(rowSums(got != merge_tops(cbind(tp$row, tp$col), tp$distance[1])) > 0)
+    sum(rowSums(got != suppressWarnings(merge_tops(cbind(tp$row, tp$col), tp$distance[1]))) > 0)
 }
 
 cat(sprintf("\ncases                : %d\n", nrow(meta)))
@@ -126,11 +128,12 @@ cat(sprintf("large scenes (%d+)   : %d of %s px (%.3f%%), bound %.2f%%\n",
             SMALL_MAX + 1L, large_diff, format(large_px, big.mark = ","),
             large_pct, 0.5))
 
-# 0.5% on the large scenes: about twenty times the 0.023% measured when
-# these cases were added, and under the 0.64% seen on real CHMs
-# (tools/real_tiles_stage_by_stage.R). Loose
-# enough not to flag the known plateau divergence, tight enough that a real
-# regression in the growing or the arbitration still fails the run.
+# 0.5% on the large scenes. They differed on 0.02 to 0.03% of pixels while a
+# top was cut down to a cell instead of going to the nearest one, and agree
+# exactly since (pycacumen 0.7.0, rcacumen 0.6.0). The bound stays loose enough
+# for a plateau tie that falls differently under another version of
+# scikit-image, and tight enough that a real regression in the growing or the
+# arbitration still fails the run.
 #
 # The tops are compared to a tolerance, not for equality: detect_tops
 # averages the coordinates of a plateau, so the last bits depend on
@@ -162,4 +165,4 @@ if (length(fail)) {
 }
 cat("\nrcacumen == pycacumen exactly on the small scenes, and within 0.5% on the\n")
 cat("large crowded ones. On real canopy height models the two differ on\n")
-cat("about 0.25% of watershed pixels; see the README.\n")
+cat("about 0.2% of watershed pixels; see the README.\n")

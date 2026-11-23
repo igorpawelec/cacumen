@@ -8,7 +8,9 @@
 # stage of rcacumen is fed pycacumen's own output of the stage before.
 #
 #   smoothing   rcacumen on the heights as read
-#   detection   rcacumen on pycacumen's smoothed model
+#   detection   rcacumen on pycacumen's smoothed model, and on the tile times
+#               1.1 in double precision, where the cell under each top has to
+#               be pycacumen's although the centres differ in their last bit
 #   mask        rcacumen on pycacumen's smoothed model
 #   watershed   rcacumen's on pycacumen's smoothed model, tops and mask,
 #               against scikit-image's
@@ -56,7 +58,7 @@ seed_of <- function(out, tops) rbind(c(-1L, -1L), tops)[as.vector(out) + 1L, , d
 fail <- character(0)
 tot <- c(mask = 0, ws = 0, px = 0, out = 0, canopy = 0)
 worst <- list(tile = NA_character_, ws = 0, out = 0, ratio = -1)
-sm_dev <- 0; top_dev <- 0
+sm_dev <- 0; top_dev <- 0; n11 <- 0L; cells_off <- 0L
 
 cat(sprintf("%-16s %5s %10s %10s %9s %10s %9s\n", "tile", "tops", "masked px",
             "watershed", "pixels", "pipeline", "of canopy"))
@@ -84,11 +86,26 @@ for (i in seq_len(nrow(idx))) {
     # row for row: the two packages list their tops in one order
     a <- own; b <- sub
     top_dev <- max(top_dev, max(abs(a - b)))
-    # Close is not enough at a pixel boundary: a top that floors to another
+    # Close is not enough at a cell boundary: a top that goes to another
     # pixel grows another crown.
-    if (any(floor(a) != floor(b)))
+    if (any(as_pixels(a) != as_pixels(b)))
       fail <- c(fail, sprintf("%s: %d top(s) fall in another pixel than pycacumen's",
-                              stem, sum(rowSums(floor(a) != floor(b)) > 0)))
+                              stem, sum(rowSums(as_pixels(a) != as_pixels(b)) > 0)))
+  }
+
+  # 2b. the cell under each top, on the same tile in double precision (x 1.1): the
+  # centre of a plateau two cells long is then a half give or take the last bit
+  sub11 <- rd(stem, "sub11"); if (ncol(sub11) == 1L) sub11 <- t(sub11)
+  own11 <- as.matrix(detect_tops(smooth_chm(raw * 1.1, ws = SMOOTH_WS, method = "median"),
+                                 hmin = 2, ws = 3L))
+  n11 <- n11 + nrow(sub11)
+  if (nrow(own11) != nrow(sub11)) {
+    fail <- c(fail, sprintf("%s x 1.1: %d tops, pycacumen has %d", stem, nrow(own11), nrow(sub11)))
+  } else {
+    off <- sum(rowSums(as_pixels(own11) != as_pixels(sub11)) > 0)
+    cells_off <- cells_off + off
+    if (off > 0L)
+      fail <- c(fail, sprintf("%s x 1.1: %d top(s) go to another cell than pycacumen's", stem, off))
   }
 
   # 3. mask
@@ -97,7 +114,7 @@ for (i in seq_len(nrow(idx))) {
     fail <- c(fail, sprintf("%s: the masks differ in %d px", stem, sum(mask_r != mask_py)))
 
   # 4. watershed, from the same markers on the same surface
-  tops_py <- matrix(as.integer(floor(sub)), ncol = 2)
+  tops_py <- as_pixels(sub)             # the cell each top stands on, by the packages' own rule
   markers <- matrix(0L, nr, nc)
   markers[tops_py] <- seq_len(nrow(tops_py))
   ws_r <- rcacumen:::.watershed(-sm_py, markers, matrix(as.integer(mask_py), nr, nc))
@@ -125,6 +142,8 @@ cat(strrep("-", 76), "\n")
 cat(sprintf("tiles                         : %d\n", nrow(idx)))
 cat(sprintf("smoothing, max difference     : %.3e m\n", sm_dev))
 cat(sprintf("detection, max top deviation  : %.3e px\n", top_dev))
+cat(sprintf("cells of tops, double surface : %s tops, %d on another cell than pycacumen's\n",
+            big(n11), cells_off))
 cat(sprintf("watershed vs scikit-image     : %s of %s masked px differ (%.2f %%)\n",
             big(tot[["ws"]]), big(tot[["mask"]]), 100 * tot[["ws"]] / tot[["mask"]]))
 cat(sprintf("whole pipeline vs pycacumen   : %s of %s px differ (%.2f %%), %.2f %% of the %s canopy px\n",

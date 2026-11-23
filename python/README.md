@@ -193,6 +193,8 @@ Numba compiles the one place that touches every pixel: the single pass that buil
 
 The rest is deliberately *not* compiled. The grow loop is driven by a heap and set membership, which Numba does not handle well, and it runs once per tree rather than once per pixel. On the same scene turning the edges into the weighted graph takes about 0.7 s and the whole of `run_all` about 1 s, so the growing is not the bottleneck; the graph is.
 
+A CHM with holes is smoothed by a compiled median as well, one that skips the cells with no data and leaves the interpreter free: milliseconds for 200 × 200 px with a quarter of the cells empty and a fraction of a second for 1,000 × 1,000 px, where numpy's `nanmedian` cell by cell takes a second or two and tens of seconds, over a hundred times as long (`examples/readme_numbers.py`).
+
 First call in a session pays the JIT compilation cost, a few seconds; `cache=True` means later runs read the compiled code from disk.
 
 </details>

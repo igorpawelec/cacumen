@@ -10,9 +10,8 @@ Copyright (C) 2025 Igor Pawelec
 Licence: GPLv3 — see LICENSE.
 """
 
-import warnings
-
 import numpy as np
+from numba import njit
 
 __all__ = ["smooth_chm", "SMOOTHING_METHODS"]
 
@@ -111,6 +110,52 @@ def smooth_chm(chm, ws=3, method="median"):
     return _smooth_with_nan(ndimage, chm, ws, method)
 
 
+@njit(cache=True, nogil=True)
+def _nanmedian_filter(a, ws):
+    """Median of the cells with data in a ws x ws window around every cell.
+
+    The window is reflected at the edges as scipy.ndimage reflects it
+    (d c b a | a b c d | d c b a), folding as often as it has to on a
+    raster narrower than the window. An even count takes the mean of its
+    two middle values, as numpy's median does. A window with no data gives
+    NaN. Compiled, and without the interpreter lock.
+    """
+    rows, cols = a.shape
+    half = ws // 2
+    out = np.empty((rows, cols), dtype=np.float64)
+    window = np.empty(ws * ws, dtype=np.float64)
+    for r in range(rows):
+        for c in range(cols):
+            n = 0
+            for dr in range(-half, half + 1):
+                rr = (r + dr) % (2 * rows)
+                if rr >= rows:
+                    rr = 2 * rows - 1 - rr
+                for dc in range(-half, half + 1):
+                    cc = (c + dc) % (2 * cols)
+                    if cc >= cols:
+                        cc = 2 * cols - 1 - cc
+                    v = a[rr, cc]
+                    if not np.isnan(v):
+                        window[n] = v
+                        n += 1
+            if n == 0:
+                out[r, c] = np.nan
+            else:
+                for i in range(1, n):            # insertion sort: the window is small
+                    v = window[i]
+                    j = i - 1
+                    while j >= 0 and window[j] > v:
+                        window[j + 1] = window[j]
+                        j -= 1
+                    window[j + 1] = v
+                if n % 2:
+                    out[r, c] = window[n // 2]
+                else:
+                    out[r, c] = (window[n // 2 - 1] + window[n // 2]) / 2.0
+    return out
+
+
 def _smooth_with_nan(ndimage, chm, ws, method):
     """Window statistics over the non-NaN cells; all-NaN windows stay NaN."""
     valid = ~np.isnan(chm)
@@ -134,15 +179,19 @@ def _smooth_with_nan(ndimage, chm, ws, method):
         with np.errstate(invalid="ignore", divide="ignore"):
             out = total / count
     else:                                    # median
-        # No vectorised form; 178x slower than median_filter on a 200x201
-        # raster, which is why this path runs only when NaN is present.
-        # A window with no data in it is the expected case here, and its NaN
-        # is the answer. numpy says "All-NaN slice encountered" for each one,
-        # which printed a RuntimeWarning on every run over a CHM with holes.
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="All-NaN slice", category=RuntimeWarning)
-            out = ndimage.generic_filter(chm, np.nanmedian, size=ws,
-                                         mode="reflect")
+        # A compiled pass: for every cell, the median of the cells of its
+        # window that have data. Until 0.7.1 this was scipy's generic_filter
+        # calling numpy's nanmedian once per cell, in Python: hundreds of
+        # times slower than the median of a CHM without holes (a second or
+        # more for a 200 x 201 tile), and holding the interpreter throughout,
+        # so a program that smoothed in a worker thread stood still. The values
+        # are the same, the cast back to the CHM's own precision included:
+        # generic_filter stored its result in the type of its input. Only the
+        # sign of a zero can differ, in a window that holds 0.0 and -0.0:
+        # which of the two is the median was numpy's partition's to say.
+        out = _nanmedian_filter(np.ascontiguousarray(chm, dtype=np.float64), int(ws))
+        if chm.dtype.kind == "f" and chm.dtype.itemsize < 8:
+            out = out.astype(chm.dtype).astype(np.float64)
 
     # A window with nothing in it has no statistic. For the gaussian that
     # means the *kernel* reached nothing, and the kernel is wider than ws --

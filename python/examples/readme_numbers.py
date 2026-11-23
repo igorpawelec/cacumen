@@ -3,7 +3,8 @@ readme_numbers.py
 ~~~~~~~~~~~~~~~~~
 The numbers the README quotes in "Notes on behaviour" and "Performance",
 measured on synthetic stands that this script builds, so that they can be
-measured again.
+measured again. The last of them, the old way of smoothing a CHM with
+holes, takes about a minute.
 
 Usage, from anywhere::
 
@@ -19,6 +20,7 @@ figures. Nothing is written.
 import os
 import sys
 import time
+import warnings
 
 import numpy as np
 
@@ -30,7 +32,7 @@ from pycacumen import (smooth_chm, detect_tops, as_pixels,          # noqa: E402
 from pycacumen.hrg import _build_adjacency_and_stats               # noqa: E402
 
 
-def stand(size, spacing, seed):
+def canopy(size, spacing, seed):
     """A size x size CHM with a crown in every cell of a jittered grid."""
     rng = np.random.default_rng(seed)
     yy, xx = np.mgrid[0:size, 0:size]
@@ -45,8 +47,28 @@ def stand(size, spacing, seed):
                    slice(max(0, int(c - 4 * s)), int(c + 4 * s) + 1))
             chm[win] = np.maximum(chm[win], h * np.exp(
                 -((yy[win] - r) ** 2 + (xx[win] - c) ** 2) / (2 * s ** 2)))
-    sm = smooth_chm(chm.astype(np.float32), ws=3, method="median")
+    return chm.astype(np.float32)
+
+
+def stand(size, spacing, seed):
+    """The canopy smoothed, and the cells of its tops."""
+    sm = smooth_chm(canopy(size, spacing, seed), ws=3, method="median")
     return sm, as_pixels(detect_tops(sm, hmin=5.0, ws=5))
+
+
+def with_holes(size, spacing, seed, share=0.25):
+    """The canopy with a share of its cells, taken at random, holding no data."""
+    chm = canopy(size, spacing, seed)
+    chm[np.random.default_rng(seed + 100).random(chm.shape) < share] = np.nan
+    return chm
+
+
+def nanmedian_per_cell(chm, ws=3):
+    """The median of a CHM with holes as it was computed until 0.7.1."""
+    from scipy import ndimage
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice", category=RuntimeWarning)
+        return ndimage.generic_filter(chm, np.nanmedian, size=ws, mode="reflect")
 
 
 def best(f, repeats=3):
@@ -102,6 +124,18 @@ def main():
     print("  %d tops on %d x %d px: the compiled pass over the pixels %.1f ms, "
           "the whole graph %.2f s, the whole run_all %.1f s"
           % (len(tops), sm.shape[0], sm.shape[1], 1000.0 * tk, tg, tw))
+
+    print("smoothing a CHM with holes (README, 'Performance'):")
+    smooth_chm(with_holes(60, 12, 0), ws=3, method="median")       # compile
+    for size, old_repeats in ((200, 3), (1000, 1)):
+        chm = with_holes(size, 14, 1)
+        tn, new = best(lambda: smooth_chm(chm, ws=3, method="median"), repeats=5)
+        to, old = best(lambda: nanmedian_per_cell(chm), repeats=old_repeats)
+        print("  %d x %d px, %.0f%% of the cells with no data: the compiled median %.1f ms, "
+              "numpy's nanmedian cell by cell %.1f s, %.0f times as long; results "
+              "identical: %s"
+              % (size, size, 100.0 * np.isnan(chm).mean(), 1000.0 * tn, to, to / tn,
+                 bool(np.array_equal(new, old.astype(np.float64), equal_nan=True))))
 
 if __name__ == "__main__":
     main()

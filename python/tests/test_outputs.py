@@ -92,8 +92,9 @@ def test_smoothing_a_chm_with_holes_warns_about_nothing():
     """The all-NaN window is the expected case and NaN is its answer; numpy's
     "All-NaN slice encountered" for each of them was printed on every run.
 
-    The warnings are recorded, not turned into errors: an exception raised
-    inside the callback of scipy's generic_filter is swallowed there."""
+    The warnings are recorded, not turned into errors: while the median was
+    scipy's generic_filter, an exception raised inside its callback was
+    swallowed there."""
     chm = np.full((30, 30), 20.0)
     chm[5:15, 5:15] = np.nan
     with warnings.catch_warnings(record=True) as seen:

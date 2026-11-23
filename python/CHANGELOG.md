@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [0.7.2] — 2026-11-23
+
+### Fixed
+- **The median of a CHM with holes no longer falls behind with a large window.** The
+  compiled pass of 0.7.1 sorted every window by insertion, at a cost that grows with
+  the square of the number of cells. With the windows of a few pixels that the method
+  is used with, that is nothing. From a window of about 25 px the pass was slower than
+  the code it had replaced, several times slower at 41 px (measured against the tag
+  `python-v0.7.1`). A window of more than 25 values now has its middle value selected,
+  and the rest is left unsorted. At 21 px the pass is several times ahead of numpy's
+  `nanmedian` cell by cell, at 41 px less than twice (`examples/readme_numbers.py`).
+  The values are those of 0.7.1 and of 0.7.0; as before, only the sign of a zero can
+  differ.
+- **A window many times wider than the raster.** Where the window is at least eight
+  times as wide as the raster, a raster 2 cells wide under a window of 17 px for one,
+  scipy reads outside the array when it reflects the edge, and on a CHM with holes
+  0.7.0 returned what it found there. Since 0.7.1 the edge folds as often as it has
+  to, which a test now holds (`tests/test_nanmedian.py`); the entry of 0.7.1 did not
+  say so. A CHM without holes still goes through scipy.
+
+
 ## [0.7.1] — 2026-11-23
 
 ### Changed

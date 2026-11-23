@@ -34,9 +34,9 @@ try:
     try:
         __version__ = version("pycacumen")
     except PackageNotFoundError:  # not installed, e.g. running from source
-        __version__ = "0.7.1"
+        __version__ = "0.7.2"
 except ImportError:  # pragma: no cover
-    __version__ = "0.7.1"
+    __version__ = "0.7.2"
 
 __author__ = "Igor Pawelec"
 __license__ = "GPLv3"

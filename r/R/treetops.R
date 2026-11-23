@@ -116,12 +116,22 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #' next collapses into one even if the endpoints are far apart. Keep the
 #' threshold well below the typical crown diameter.
 #'
+#' A centroid is a point between the tops, and on a CHM with holes it can
+#' fall on a cell with no data. Nothing grows from there: the tops it stood
+#' for would leave no crown at all. Given the CHM, such a group is
+#' represented by the highest of its own tops instead.
+#'
 #' @param tops Two-column matrix of (row, col) positions.
 #' @param distance Numeric. Merge radius in pixels.
+#' @param chm Optional numeric matrix, the CHM the tops were detected on.
+#'   With it, a group whose centroid falls on a cell with no data (`NA`) or
+#'   outside the raster is replaced by the highest of its tops (the first of
+#'   them when several are equally high). Without it every group is replaced
+#'   by its centroid, wherever that falls.
 #'
 #' @return A two-column matrix with at most as many rows as `tops`.
 #' @export
-merge_tops <- function(tops, distance = 5) {
+merge_tops <- function(tops, distance = 5, chm = NULL) {
   tops <- .as_tops(tops)
   n <- nrow(tops)
   if (n < 2L) return(tops)
@@ -138,8 +148,29 @@ merge_tops <- function(tops, distance = 5) {
     }
   }
   g <- vapply(seq_len(n), find, integer(1))
-  cbind(as.vector(rowsum(tops[, 1], g, reorder = TRUE)) / as.vector(table(g)),
-        as.vector(rowsum(tops[, 2], g, reorder = TRUE)) / as.vector(table(g)))
+  out <- cbind(as.vector(rowsum(tops[, 1], g, reorder = TRUE)) / as.vector(table(g)),
+               as.vector(rowsum(tops[, 2], g, reorder = TRUE)) / as.vector(table(g)))
+  if (!is.null(chm)) {
+    chm <- as.matrix(chm)
+    ids <- sort(unique(g))              # the order rowsum(reorder = TRUE) gives
+    h_tops <- .height_at(chm, tops)
+    for (k in which(is.na(.height_at(chm, out)))) {
+      idx <- which(g == ids[k])
+      if (length(idx) > 1L && any(!is.na(h_tops[idx])))
+        out[k, ] <- tops[idx[which.max(h_tops[idx])], ]
+    }
+  }
+  out
+}
+
+# CHM value under each top; NA for a top outside the raster or on no data.
+.height_at <- function(chm, tops) {
+  rc <- floor(tops)
+  inside <- rc[, 1] >= 1 & rc[, 1] <= nrow(chm) & rc[, 2] >= 1 & rc[, 2] <= ncol(chm)
+  inside[is.na(inside)] <- FALSE
+  h <- rep(NA_real_, nrow(tops))
+  if (any(inside)) h[inside] <- chm[cbind(rc[inside, 1], rc[inside, 2])]
+  h
 }
 
 #' Drop tree tops standing on low CHM values

@@ -156,6 +156,7 @@ cd = CrownDelineator.from_file("big_chm.tif", window=(1000, 500, 2000, 2000))
 | `hmin` | 2.0 | Minimum height (m) for a pixel to be a candidate |
 | `ws` | 3 | Local-maximum window (px) = minimum spacing between tops |
 | `distance` | 5.0 | Merge radius (px). Grouping is transitive — keep below crown diameter |
+| `chm` | `None` | `merge_tops` only: the CHM. With it, a group whose centroid falls on a cell with no data is represented by its highest top; the pipeline passes it |
 
 **Growing** — `delineate` / `run_all`
 

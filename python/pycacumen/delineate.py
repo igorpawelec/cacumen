@@ -129,7 +129,7 @@ class CrownDelineator:
         if self.tops is None:
             raise ValueError("call detect() before merge()")
         before = len(self.tops)
-        self.tops = merge_tops(self.tops, distance=distance)
+        self.tops = merge_tops(self.tops, distance=distance, chm=self.smoothed)
         self._say(f"merge: {before} -> {len(self.tops)} (distance={distance})")
         return self
 

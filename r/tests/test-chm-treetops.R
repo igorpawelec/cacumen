@@ -63,7 +63,9 @@ ok(nrow(kept) == 1 && all(kept[1, ] == c(7, 5)),
    "a top with an NA coordinate is dropped")
 
 # The same through delineate(): two crowns either side of a hole, close
-# enough to merge, so the merged top lands inside the hole.
+# enough to merge, so their centroid lands inside the hole. Until 0.5.2 the
+# merged top stayed there and was screened out, and both trees were left
+# without a crown; now the higher of the two stands in for the group.
 yy <- row(matrix(0, 30, 30)); xx <- col(matrix(0, 30, 30))
 gap <- pmax(26 * exp(-((yy - 15)^2 + (xx - 10)^2) / 8),
             26 * exp(-((yy - 15)^2 + (xx - 16)^2) / 8))
@@ -71,7 +73,10 @@ gap[13:17, 12:14] <- NA
 res <- delineate(gap, smooth_ws = 1, hmin = 5, detect_ws = 5,
                  merge_distance = 8, screen_hmin = 10, quiet = TRUE)
 ok(!anyNA(res$tops), "delineate() keeps no NA top when a merged top falls in a hole")
-ok(nrow(res$tops) == 0, "the merged top in the hole is screened out, as in pycacumen")
+ok(nrow(res$tops) == 1 &&
+   !is.na(gap[floor(res$tops[1, 1]), floor(res$tops[1, 2])]) &&
+   sum(res$crowns > 0) > 0,
+   "the group whose centroid falls in the hole keeps a top and a crown")
 
 cat("as_pixels\n")
 ok(all(as_pixels(rbind(c(3.7, 4.2))) == c(3L, 4L)), "floors to integers")
@@ -112,5 +117,49 @@ for (meth in c("median", "mean", "maximum", "gaussian")) {
 ok(nrow(detect_tops(sc, hmin = 5, ws = 5L)) ==
    nrow(detect_tops(sc[, ncol(sc):1], hmin = 5, ws = 5L)),
    "detection with an odd ws is orientation-independent")
+
+cat("a merged top on a hole\n")
+
+# Two crowns six cells apart with a hole between them, wide enough to
+# outlast the smoothing, which fills the cells on a hole's rim. The
+# centroid of their two tops falls on the hole.
+hole_scene <- function(n = 41L) {
+  rr <- matrix(seq_len(n), n, n); cc <- t(rr)
+  m <- matrix(0, n, n)
+  for (p in list(c(21, 18, 22), c(21, 24, 26)))
+    m <- pmax(m, p[3] * exp(-((rr - p[1])^2 + (cc - p[2])^2) / (2 * 2.5^2)))
+  m[19:23, 20:22] <- NA
+  m
+}
+hs <- hole_scene()
+two <- rbind(c(21.5, 18.5), c(21.5, 24.5))
+ok(is.na(hs[21, 21]), "the centroid of the two tops falls on no data")
+ok(isTRUE(all.equal(merge_tops(two, 7), rbind(c(21.5, 21.5)))),
+   "without the CHM the centroid stands wherever it falls")
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = hs), rbind(c(21.5, 24.5)))),
+   "with the CHM the highest top stands in for a centroid on no data")
+ok(nrow(screen_tops(hs, merge_tops(two, 7, chm = hs), 10)) == 1L &&
+   nrow(screen_tops(hs, merge_tops(two, 7), 10)) == 0L,
+   "and survives the screening that drops the centroid")
+tie <- hs; tie[21, 18] <- tie[21, 24] <- 30
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = tie), rbind(c(21.5, 18.5)))) &&
+   isTRUE(all.equal(merge_tops(two[2:1, ], 7, chm = tie), rbind(c(21.5, 24.5)))),
+   "equally high tops give the first of them")
+filled <- hs; filled[19:23, 21] <- 5
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = filled), rbind(c(21.5, 21.5)))),
+   "a centroid on data is left alone")
+five <- rbind(c(6.5, 6.5), c(21.5, 18.5), c(7.5, 6.5), c(21.5, 24.5), c(36.5, 36.5))
+plain <- merge_tops(five, 7); aware <- merge_tops(five, 7, chm = hs)
+moved <- rowSums(plain != aware) > 0
+ok(nrow(plain) == 3L && nrow(aware) == 3L && sum(moved) == 1L &&
+   isTRUE(all.equal(aware[moved, ], c(21.5, 24.5))),
+   "groups that are not affected keep their place and order")
+ok(isTRUE(all.equal(merge_tops(rbind(c(10.5, 3.5), c(13.5, 3.5)), 5,
+                               chm = matrix(20, 10, 10)), rbind(c(10.5, 3.5)))),
+   "a centroid outside the raster counts as no data")
+res <- delineate(hs, smooth_ws = 3, hmin = 5, detect_ws = 3, merge_distance = 7,
+                 screen_hmin = 10, variance_thresh = 50, mask_thresh = 1, quiet = TRUE)
+ok(nrow(res$tops) == 1L && res$tops[1, 2] > 22 && sum(res$crowns > 0) > 20,
+   "delineate() keeps a crown for the group, grown from the taller tree")
 
 cat("\nall chm/treetops tests passed\n")

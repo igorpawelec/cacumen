@@ -107,7 +107,18 @@ def detect_tops(chm, hmin=2.0, ws=3):
     return _as_tops_array(centres)
 
 
-def merge_tops(tops, distance=5.0):
+def _heights_at(chm, tops):
+    """CHM value under each top; NaN for a top outside the raster or on no data."""
+    rows, cols = chm.shape
+    rc = np.floor(tops).astype(np.intp)
+    inside = ((rc[:, 0] >= 0) & (rc[:, 0] < rows) &
+              (rc[:, 1] >= 0) & (rc[:, 1] < cols))
+    h = np.full(len(tops), np.nan)
+    h[inside] = chm[rc[inside, 0], rc[inside, 1]]
+    return h
+
+
+def merge_tops(tops, distance=5.0, chm=None):
     """
     Merge tree tops that lie within *distance* of each other.
 
@@ -115,6 +126,11 @@ def merge_tops(tops, distance=5.0):
     through several local maxima. Neighbours within the radius are found
     with a k-d tree, grouped transitively with union-find, and each group
     is replaced by its centroid.
+
+    A centroid is a point between the tops, and on a CHM with holes it can
+    fall on a cell with no data. Nothing grows from there: the tops it
+    stood for would leave no crown at all. Given the CHM, such a group is
+    represented by the highest of its own tops instead.
 
     Note the grouping is transitive: a chain of tops each within
     *distance* of the next collapses into one, even if the endpoints are
@@ -126,6 +142,12 @@ def merge_tops(tops, distance=5.0):
         Tree top coordinates.
     distance : float
         Merge radius in pixels.
+    chm : ndarray, shape (rows, cols), optional
+        The CHM the tops were detected on. With it, a group whose centroid
+        falls on a cell with no data (NaN) or outside the raster is replaced
+        by the highest of its tops (the first of them when several are
+        equally high). Without it every group is replaced by its centroid,
+        wherever that falls.
 
     Returns
     -------
@@ -170,8 +192,16 @@ def merge_tops(tops, distance=5.0):
     for i in range(n):
         groups[find(i)].append(i)
 
-    merged = [tops[idx].mean(axis=0) for idx in groups.values()]
-    return _as_tops_array(merged)
+    members = list(groups.values())
+    merged = _as_tops_array([tops[idx].mean(axis=0) for idx in members])
+    if chm is not None:
+        chm = np.asarray(chm)
+        h_tops = _heights_at(chm, tops)
+        for g in np.flatnonzero(np.isnan(_heights_at(chm, merged))):
+            h = h_tops[members[g]]
+            if len(h) > 1 and not np.isnan(h).all():
+                merged[g] = tops[members[g][int(np.nanargmax(h))]]
+    return merged
 
 
 def screen_tops(chm, tops, hmin):

@@ -4,12 +4,18 @@
 \alias{merge_tops}
 \title{Merge tree tops that lie close together}
 \usage{
-merge_tops(tops, distance = 5)
+merge_tops(tops, distance = 5, chm = NULL)
 }
 \arguments{
 \item{tops}{Two-column matrix of (row, col) positions.}
 
 \item{distance}{Numeric. Merge radius in pixels.}
+
+\item{chm}{Optional numeric matrix, the CHM the tops were detected on.
+With it, a group whose centroid falls on a cell with no data (\code{NA}) or
+outside the raster is replaced by the highest of its tops (the first of
+them when several are equally high). Without it every group is replaced
+by its centroid, wherever that falls.}
 }
 \value{
 A two-column matrix with at most as many rows as \code{tops}.
@@ -23,4 +29,9 @@ transitively and each group is replaced by its centroid.
 Grouping is transitive: a chain of tops each within \code{distance} of the
 next collapses into one even if the endpoints are far apart. Keep the
 threshold well below the typical crown diameter.
+
+A centroid is a point between the tops, and on a CHM with holes it can
+fall on a cell with no data. Nothing grows from there: the tops it stood
+for would leave no crown at all. Given the CHM, such a group is
+represented by the highest of its own tops instead.
 }

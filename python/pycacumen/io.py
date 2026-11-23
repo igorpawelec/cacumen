@@ -296,17 +296,31 @@ def save_tree_tops(corrected_tops: np.ndarray,
                    transform,
                    crs_wkt: str,
                    chm: np.ndarray,
-                   driver: str = "ESRI Shapefile") -> None:
+                   driver: str = "ESRI Shapefile",
+                   raw_chm: np.ndarray = None) -> None:
     """
     Save corrected tree tops as point vector file.
+
+    Every point carries ``height``, the value of *chm* in the cell the top
+    stands on, and, when *raw_chm* is given, ``raw_height``, the value of
+    that CHM in the same cell. Heights are rounded to two decimals. A
+    height that is not a number, a cell with no data, is written as null.
 
     Parameters
     ----------
     corrected_tops : ndarray (n, 2)
         Tree top positions as (row, col) pixel coordinates.
-    out_path, fname, transform, crs_wkt, chm : see save_segments.
+    out_path, fname, transform, crs_wkt : see save_segments.
+    chm : ndarray, shape (rows, cols)
+        The CHM the tops were detected on, the smoothed one in the
+        pipeline. Its value under a top is the height the top was detected
+        and screened at, so it meets the thresholds the top passed.
     driver : str
         Fiona driver: "ESRI Shapefile" (default), "GPKG", "GeoJSON".
+    raw_chm : ndarray, shape (rows, cols), optional
+        The CHM before smoothing. Under a top it is often a pit or a cell
+        with no data, which the smoothing filled: on the tile of the README
+        22 of 215 tops stand on such a cell.
     """
     fiona = _ensure_fiona()
     if out_path:
@@ -323,14 +337,23 @@ def save_tree_tops(corrected_tops: np.ndarray,
             'height': 'float'
         }
     }
+    if raw_chm is not None:
+        schema['properties']['raw_height'] = 'float'
 
     coords = np.array(corrected_tops, dtype=float)
     # the cell the top stands on: the nearest one, as everywhere else
     from .treetops import _cells
     cells = _cells(coords.reshape(-1, 2))
     rows, cols = cells[:, 0], cells[:, 1]
-    heights = chm[rows, cols]
-    heights = np.round(heights, 2)
+
+    def under_the_tops(surface):
+        # the cells first, then double precision: the raster is not copied, and
+        # a float32 height rounds to 12.35 and not to 12.340000152587890
+        values = np.round(np.asarray(surface)[rows, cols].astype(float), 2)
+        return [float(v) if np.isfinite(v) else None for v in values]
+
+    heights = under_the_tops(chm)
+    raw_heights = under_the_tops(raw_chm) if raw_chm is not None else None
 
     with fiona.open(
         vec_path,
@@ -354,13 +377,10 @@ def save_tree_tops(corrected_tops: np.ndarray,
             x = px * transform.a + py * transform.b + transform.c
             y = px * transform.d + py * transform.e + transform.f
             geom = {"type": "Point", "coordinates": (x, y)}
-            dst.write({
-                'geometry': geom,
-                'properties': {
-                    'id': idx,
-                    'height': float(heights[idx])
-                }
-            })
+            properties = {'id': idx, 'height': heights[idx]}
+            if raw_heights is not None:
+                properties['raw_height'] = raw_heights[idx]
+            dst.write({'geometry': geom, 'properties': properties})
 
 
 def save_crowns_raster(crowns: np.ndarray,

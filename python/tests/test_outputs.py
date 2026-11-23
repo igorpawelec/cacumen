@@ -20,6 +20,7 @@ fiona = pytest.importorskip("fiona")
 
 from pycacumen import CrownDelineator, __version__, smooth_chm  # noqa: E402
 from pycacumen.cli import build_parser  # noqa: E402
+from pycacumen.treetops import _cells  # noqa: E402
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "test_data")
 CHM = os.path.join(DATA, "chm_150_2014.tif")
@@ -49,6 +50,81 @@ def test_tops_to_vector_makes_the_folder_too(delineated, tmp_path):
     out = tmp_path / "tops"
     delineated.tops_to_vector(str(out), name="tops")
     assert (out / "tops_treetops.shp").exists()
+
+
+@needs_data
+@pytest.mark.parametrize("driver, ext", [("ESRI Shapefile", ".shp"), ("GPKG", ".gpkg")])
+def test_a_top_carries_the_height_it_was_detected_at(delineated, tmp_path, driver, ext):
+    """Until 0.7.1 ``height`` was read from the CHM as given. A top is found on
+    the smoothed one, and the cell under it is often a hole or a pit that the
+    smoothing filled: 22 of the 215 tops of the quick start had no height or a
+    height of 0.00 m, one of them 12.98 m high where it was kept \"from 10 m\".
+    ``height`` is the smoothed value now and ``raw_height`` the one that was
+    there before."""
+    delineated.tops_to_vector(str(tmp_path), name="tops", driver=driver)
+    with fiona.open(str(tmp_path / ("tops_treetops" + ext))) as src:
+        assert list(src.schema["properties"]) == ["id", "height", "raw_height"]
+        rows = [dict(f["properties"]) for f in src]
+    assert [r["id"] for r in rows] == list(range(215))
+
+    cells = _cells(delineated.tops)
+    smoothed = delineated.smoothed[cells[:, 0], cells[:, 1]]
+    raw = delineated.chm[cells[:, 0], cells[:, 1]]
+    for row, s, r in zip(rows, smoothed, raw):
+        assert row["height"] == pytest.approx(float(s), abs=0.006)
+        if np.isnan(r):
+            assert row["raw_height"] is None
+        else:
+            assert row["raw_height"] == pytest.approx(float(r), abs=0.006)
+
+    assert min(r["height"] for r in rows) > 10.0             # what screen(10.0) kept
+    assert sum(r["raw_height"] is None for r in rows) == 21
+    pits = [r for r in rows if r["raw_height"] is not None and r["raw_height"] <= 10.0]
+    assert [(r["raw_height"], r["height"]) for r in pits] == [(0.0, 12.98)]
+
+
+def test_tops_written_by_hand_carry_what_they_are_given(tmp_path):
+    """``save_tree_tops`` on its own writes ``height`` from the CHM it is handed
+    and no second field, as it always did; a cell with no data is null, where
+    it used to be written as not-a-number."""
+    from affine import Affine
+    from pycacumen.io import save_tree_tops
+
+    chm = np.arange(20.0).reshape(4, 5)
+    chm[2, 3] = np.nan
+    tops = np.array([[1.0, 1.0], [2.0, 3.0], [0.6, 3.4]])
+    wkt = rasterio.crs.CRS.from_epsg(2180).to_wkt()
+    transform = Affine(0.5, 0.0, 500000.0, 0.0, -0.5, 300000.0)
+
+    save_tree_tops(tops, str(tmp_path), "plain", transform, wkt, chm, driver="GPKG")
+    with fiona.open(str(tmp_path / "plain_treetops.gpkg")) as src:
+        assert list(src.schema["properties"]) == ["id", "height"]
+        assert [f["properties"]["height"] for f in src] == [6.0, None, 8.0]
+
+    filled = np.where(np.isnan(chm), 12.5, chm)
+    save_tree_tops(tops, str(tmp_path), "both", transform, wkt, filled, driver="GPKG",
+                   raw_chm=chm)
+    with fiona.open(str(tmp_path / "both_treetops.gpkg")) as src:
+        got = [(f["properties"]["height"], f["properties"]["raw_height"]) for f in src]
+    assert got == [(6.0, 6.0), (12.5, None), (8.0, 8.0)]
+
+
+def test_tops_put_in_by_hand_on_a_chm_that_was_not_smoothed_carry_its_own_height(tmp_path):
+    """detect() smooths a CHM that was not smoothed, so there is a smoothed CHM
+    whenever the tops came from the pipeline. Without one the CHM as given is
+    all there is."""
+    from affine import Affine
+
+    yy, xx = np.mgrid[0:30, 0:30]
+    chm = (20.0 * np.exp(-((yy - 15) ** 2 + (xx - 15) ** 2) / 40.0)).astype(np.float32)
+    cd = CrownDelineator(chm, transform=Affine(1.0, 0.0, 0.0, 0.0, -1.0, 30.0),
+                         crs=rasterio.crs.CRS.from_epsg(2180), quiet=True)
+    cd.tops = np.array([[15.0, 15.0]])
+    assert cd.smoothed is None
+    cd.tops_to_vector(str(tmp_path), name="t", driver="GPKG")
+    with fiona.open(str(tmp_path / "t_treetops.gpkg")) as src:
+        got = [dict(f["properties"]) for f in src]
+    assert got == [{"id": 0, "height": 20.0, "raw_height": 20.0}]
 
 
 @needs_data

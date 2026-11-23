@@ -184,6 +184,8 @@ Ties in the conflict rules resolve to the lower crown id, so output is fully rep
 
 **`n_jobs > 1` does not pay on a small scene.** The graph is shared per worker rather than per task, but starting the workers costs seconds, and growing is cheap per tree: on a stand of about 1,090 trees `run_all` takes a quarter of a second on its own and over two seconds with two workers (`examples/readme_numbers.py`). Time it on your own scene before relying on it. Results are identical to sequential either way.
 
+**An exported top carries two heights.** `tops_to_vector` writes `height`, read from the smoothed CHM the top was detected and screened on, and `raw_height`, read from the CHM as given. They differ where the smoothing filled a hole or a pit under the top: with the quick start on `test_data/chm_150_2014.tif`, 21 of the 215 tops stand on a cell with no data, where `raw_height` is null, and one on a cell of 0.00 m whose smoothed height is 12.98 m (`tests/test_outputs.py`).
+
 </details>
 
 <details>

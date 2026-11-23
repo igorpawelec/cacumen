@@ -251,14 +251,19 @@ class CrownDelineator:
         return out_dir
 
     def tops_to_vector(self, out_dir, name="treetops", **kwargs):
-        """Write tree tops as points."""
+        """Write tree tops as points, each with ``height``, read from the
+        smoothed CHM the tops were detected on, and ``raw_height``, read from
+        the CHM as given, which is null where the top stands on a cell with
+        no data. The smoothed CHM is the one held when the file is written:
+        smoothing again after detecting changes the heights, not the tops."""
         from .io import save_tree_tops
         if self.tops is None:
             raise ValueError("call detect() first")
         self._need_geo("tops_to_vector")
         crs_wkt = self.crs.to_wkt() if hasattr(self.crs, "to_wkt") else self.crs
-        save_tree_tops(self.tops, str(out_dir), name, self.transform,
-                       crs_wkt, chm=self.chm, **kwargs)
+        save_tree_tops(self.tops, str(out_dir), name, self.transform, crs_wkt,
+                       chm=self.smoothed if self.smoothed is not None else self.chm,
+                       raw_chm=self.chm, **kwargs)
         self._say(f"wrote {out_dir}/{name}")
         return out_dir
 

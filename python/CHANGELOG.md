@@ -1,6 +1,33 @@
 # Changelog
 
 
+## [0.6.3] — 2026-11-23
+
+### Changed
+- **`read_chm` and `CrownDelineator.from_file` return cells with no data as NaN.**
+  The raster's nodata value used to come back as it was stored, so a declared
+  -9999 was read as a height. It stayed out of every crown, being below any
+  mask threshold, but it took part in the smoothing of the cells beside a hole,
+  which rcacumen, reading `NA`, never let it do. Cells that hold the nodata
+  value are NaN now, and smoothing and detection skip them. A raster whose
+  nodata is NaN already, as the tiles in `test_data` are, reads as before, and
+  so does one that declares none. A mask band or an alpha band is not
+  consulted, as it is not in rcacumen.
+
+### Fixed
+- **A group of merged tops whose centroid fell on a hole left no crown.**
+  `merge_tops` replaces tops closer than the radius by their centroid, and on a
+  CHM with holes the centroid can fall on a cell with no data. The merged top
+  was then screened out, or stood outside the mask, and the trees it stood for
+  got no crown at all. `merge_tops` takes the CHM as an optional `chm` argument
+  now and represents such a group by the highest of its own tops;
+  `CrownDelineator.merge` and `delineate_crowns` pass it. On the tiles of
+  `test_data` with the quick-start parameters one tree comes back on each of
+  `chm_150_2023.tif` (214 to 215 tops) and `chm_33_2012.tif` (391 to 392); the
+  other five are unchanged. `merge_tops(tops, distance)` without the CHM does
+  what it did.
+
+
 ## [0.6.2] — 2026-11-22
 
 ### Fixed

@@ -1,3 +1,40 @@
+# rcacumen 0.6.0
+
+## Changed
+
+* **A top goes to the nearest cell.** A top is a position in array coordinates, where
+  whole numbers are the centres of the cells, and the cell under it was found by
+  cutting the coordinate down: 187.67 went to cell 187, though it stands in 188. For a
+  top that is the centre of a plateau, nearly half of the tops on the tiles of
+  `test_data`, that put the seed one cell up or left of the centre, and now and then on
+  the ground beside the crown, where a crown then grew. `as_pixels()`, `screen_tops()`,
+  `grow_crowns()` and the fall-back of `merge_tops()` use the nearest cell now. A half
+  goes up, and so does anything within a millionth of a pixel of one: the centre of a
+  plateau two cells long is a half that comes out with a last bit either way, and that
+  bit must not choose the cell. Tops and crowns change wherever a seed moves: the README's call on
+  `chm_150_2014.tif` gives 215 tops and 214 crowns where 0.5.3 gave 213 and 212.
+  With the seeds on their plateaus the two packages also agree more closely. All
+  seventy synthetic scenes are identical with pycacumen 0.7.0, where the ten large ones
+  differed on 0.032 % of pixels, and on the seven real tiles the finished crowns differ
+  on 0.10 % of pixels, where they differed on 0.64 %. The crowns are steadier as well:
+  a nanometre of noise on a tile moves up to 24 % of its canopy pixels to another
+  crown, where it moved up to 85 % (`tools/measure_tie_sensitivity.py`).
+* **A merged group whose centroid stands where no top could be is represented by its
+  highest top**, and not only a group whose centroid has no data. `merge_tops()` takes
+  `hmin`, the height the tops were detected above. With it and the CHM, a centroid on a
+  cell that is not above `hmin`, the ground in the gap between two crowns for one, gives
+  way to the highest top of the group. `delineate()` passes its own `hmin`.
+  `merge_tops()` refuses a `distance` below zero and an `hmin` that is not a number.
+
+## Added
+
+* **`merge_tops()` warns when it merges in chains.** Grouping is transitive, and with a
+  distance near the spacing of the trees a whole stand folds into a few tops: 1,264
+  tops into one at 8 px on `chm_33_2012.tif`. The warning says how many groups stretch
+  over more than five times the merge distance and how long the longest is. The result
+  is unchanged.
+
+
 # rcacumen 0.5.3
 
 ## Changed

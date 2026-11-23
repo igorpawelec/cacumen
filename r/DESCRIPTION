@@ -1,7 +1,7 @@
 Package: rcacumen
 Type: Package
 Title: Individual Tree Crown Delineation by Hierarchical Region Growing
-Version: 0.5.3
+Version: 0.6.0
 Authors@R: person("Igor", "Pawelec", email = "igor.pawelec@urk.edu.pl",
                   role = c("aut", "cre"),
                   comment = c(ORCID = "0009-0005-9798-3596"))
@@ -10,13 +10,12 @@ Description: Delineates individual tree crowns from a canopy height model.
     weighted adjacency graph; crowns then grow under a height-variance
     constraint, merging neighbouring trees where the canopy does not
     separate them, which corrects over-detected tree tops. Canopy claimed by
-    two crowns is arbitrated on the data, so the segmentation does not depend
-    on the order the tree tops arrive in. Results match the 'pycacumen' Python
-    package pixel for pixel on the small scenes of the shared synthetic test
-    suite, and closely but not exactly on its large crowded scenes and on
-    real canopy height models, where plateaus make the two implementations
-    break ties differently; the difference is measured and documented
-    rather than assumed away.
+    two crowns is arbitrated on the data, and only an exact tie falls to the
+    tree top that comes first. Results match the 'pycacumen' Python package
+    pixel for pixel on the shared synthetic test suite, and closely but not
+    exactly on real canopy height models, where plateaus make the two
+    implementations break ties differently; the difference is measured and
+    documented rather than assumed away.
     Methods follow Chan, Golub and LeVeque (1983)
     <doi:10.1080/00031305.1983.10483115> for combining region statistics and
     Popescu and Wynne (2004) <doi:10.14358/PERS.70.5.589> for tree detection.

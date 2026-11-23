@@ -63,7 +63,7 @@ def with_holes(size, spacing, seed, share=0.25):
     return chm
 
 
-def nanmedian_per_cell(chm, ws=3):
+def nanmedian_per_cell(chm, ws):
     """The median of a CHM with holes as it was computed until 0.7.1."""
     from scipy import ndimage
     with warnings.catch_warnings():
@@ -130,11 +130,19 @@ def main():
     for size, old_repeats in ((200, 3), (1000, 1)):
         chm = with_holes(size, 14, 1)
         tn, new = best(lambda: smooth_chm(chm, ws=3, method="median"), repeats=5)
-        to, old = best(lambda: nanmedian_per_cell(chm), repeats=old_repeats)
+        to, old = best(lambda: nanmedian_per_cell(chm, 3), repeats=old_repeats)
         print("  %d x %d px, %.0f%% of the cells with no data: the compiled median %.1f ms, "
               "numpy's nanmedian cell by cell %.1f s, %.0f times as long; results "
               "identical: %s"
               % (size, size, 100.0 * np.isnan(chm).mean(), 1000.0 * tn, to, to / tn,
+                 bool(np.array_equal(new, old.astype(np.float64), equal_nan=True))))
+    chm = with_holes(200, 14, 1)
+    for ws in (9, 21, 41):
+        tn, new = best(lambda: smooth_chm(chm, ws=ws, method="median"), repeats=3)
+        to, old = best(lambda: nanmedian_per_cell(chm, ws), repeats=1)
+        print("  200 x 200 px, a window of %d px: the compiled median %.2f s, cell by cell "
+              "%.1f s, %.1f times as long; results identical: %s"
+              % (ws, tn, to, to / tn,
                  bool(np.array_equal(new, old.astype(np.float64), equal_nan=True))))
 
 if __name__ == "__main__":

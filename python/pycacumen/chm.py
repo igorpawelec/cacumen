@@ -110,6 +110,62 @@ def smooth_chm(chm, ws=3, method="median"):
     return _smooth_with_nan(ndimage, chm, ws, method)
 
 
+# A window of up to this many values is sorted where it lies; of a larger one
+# only the middle is found. Sorting by insertion costs the square of the count:
+# nothing for a 5 x 5 window, and what made a 41 x 41 one slower in 0.7.1 than
+# the code that 0.7.1 replaced.
+_SORT_UP_TO = 25
+
+
+@njit(cache=True, nogil=True)
+def _kth_smallest(a, n, k):
+    """Rearrange a[:n] so that a[k] is its k-th smallest value (from 0), with
+    nothing larger before it and nothing smaller after it, and return a[k].
+
+    Hoare's selection: the range that holds position k is split around one
+    of its values until the split falls on k. The time grows with n, not
+    with its square, also where all the values are equal, as on the ground.
+
+    The value to split around is the one in the middle of the range for
+    the first two rounds: the best guess where the values lie in order, as
+    a slope read row by row does. Where they rise and then fall, as a
+    ridge read row by row does, the middle holds the largest every time
+    and each round takes off one row of the window, tens of times the work
+    for 41 x 41 cells. From the third round the value comes from a place
+    scattered over the range, which the orders a raster produces do not
+    follow. The place is a function of the round alone, so the same window
+    always takes the same course, and an order built against that very
+    sequence can still be slow; it is not one a raster holds.
+    """
+    lo, hi = 0, n - 1
+    rounds = 0
+    step = 0
+    while lo < hi:
+        if rounds < 2:
+            pivot = a[(lo + hi) // 2]
+        else:
+            step = (step * 1103515245 + 12345) & 0x7FFFFFFF
+            pivot = a[lo + step % (hi - lo + 1)]
+        rounds += 1
+        i, j = lo, hi
+        while i <= j:
+            while a[i] < pivot:
+                i += 1
+            while a[j] > pivot:
+                j -= 1
+            if i <= j:
+                a[i], a[j] = a[j], a[i]
+                i += 1
+                j -= 1
+        if k <= j:
+            hi = j
+        elif k >= i:
+            lo = i
+        else:                                # between the two parts: a[k] is the pivot
+            break
+    return a[k]
+
+
 @njit(cache=True, nogil=True)
 def _nanmedian_filter(a, ws):
     """Median of the cells with data in a ws x ws window around every cell.
@@ -119,6 +175,11 @@ def _nanmedian_filter(a, ws):
     raster narrower than the window. An even count takes the mean of its
     two middle values, as numpy's median does. A window with no data gives
     NaN. Compiled, and without the interpreter lock.
+
+    A window of a few values is sorted by insertion; of a larger one the
+    middle value is selected and the rest left unsorted (_kth_smallest),
+    so that the cost per cell grows with the window and not with its
+    square.
     """
     rows, cols = a.shape
     half = ws // 2
@@ -141,6 +202,17 @@ def _nanmedian_filter(a, ws):
                         n += 1
             if n == 0:
                 out[r, c] = np.nan
+            elif n > _SORT_UP_TO:
+                k = n // 2
+                upper = _kth_smallest(window, n, k)
+                if n % 2:
+                    out[r, c] = upper
+                else:                            # the other middle value: the largest before k
+                    lower = window[0]
+                    for i in range(1, k):
+                        if window[i] > lower:
+                            lower = window[i]
+                    out[r, c] = (lower + upper) / 2.0
             else:
                 for i in range(1, n):            # insertion sort: the window is small
                     v = window[i]

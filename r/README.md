@@ -209,7 +209,7 @@ The practical consequence: **a tree count from this method carries an implementa
 
 **The crown count can be lower than the tree-top count.** That is the point: merged trees leave gaps in the id sequence. Use `protect_seeds = TRUE` if you need one crown per top.
 
-**`retry_rejected` only bites in the middle.** A rejected region can become admissible later, because absorbing a large homogeneous neighbour can *lower* a crown's variance. On a 1105-tree synthetic scene this changed nothing at `variance_thresh` 2 or 8, and nothing at 120, but changed ~17% of the raster at 20. The direction is not predictable.
+**`retry_rejected` only bites in the middle.** A rejected region can become admissible later, because absorbing a large homogeneous neighbour can *lower* a crown's variance. On three synthetic stands of about 1,090 trees this changed nothing at `variance_thresh` 2 or 8, and nothing at 120, but changed 9 to 13 % of the raster at 20 (measured with pycacumen, `python/examples/readme_numbers.py` in this repository). The direction is not predictable.
 
 **Where the C is, and why.** Two routines are compiled: the watershed, which is a sequential priority flood that no amount of vectorising fixes, and the pixel pass, which touches every cell. Everything else — the graph, the growing, the arbitration — is ordinary R, because it runs once per *tree*, not once per pixel, and that is the part you might actually want to read or change.
 

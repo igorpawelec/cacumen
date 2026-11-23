@@ -180,20 +180,20 @@ Ties in the conflict rules resolve to the lower crown id, so output is fully rep
 
 **The crown count can be lower than the tree-top count.** That is the point: merged trees leave gaps in the id sequence. If you need one crown per top, use `protect_seeds=True`.
 
-**`retry_rejected` only bites in the middle.** A rejected region can become admissible later, because absorbing a large homogeneous neighbour can *lower* a crown's variance. On a 1105-tree synthetic scene this changed nothing at `variance_thresh` 2 or 8 (rejections are final anyway) and nothing at 120 (everything merges regardless), but changed ~17% of the raster at 20. The direction is not predictable — the crown count moved both up and down.
+**`retry_rejected` only bites in the middle.** A rejected region can become admissible later, because absorbing a large homogeneous neighbour can *lower* a crown's variance. On three synthetic stands of about 1,090 trees (`examples/readme_numbers.py`) this changed nothing at `variance_thresh` 2 or 8 (rejections are final anyway) and nothing at 120 (everything merges regardless), but changed 9 to 13 % of the raster at 20. The direction is not predictable — the crown count went down on two of the stands and up on the third.
 
-**`n_jobs > 1` is worth it only on large scenes.** The graph is shared per worker rather than per task, but process start-up still costs ~0.1 s each, and growing is cheap per tree (~0.4 s for 1150 trees). Results are identical to sequential either way.
+**`n_jobs > 1` does not pay on a small scene.** The graph is shared per worker rather than per task, but starting the workers costs seconds, and growing is cheap per tree: on a stand of about 1,090 trees `run_all` takes a quarter of a second on its own and over two seconds with two workers (`examples/readme_numbers.py`). Time it on your own scene before relying on it. Results are identical to sequential either way.
 
 </details>
 
 <details>
 <summary><b>Performance</b></summary>
 
-Numba compiles the one place that touches every pixel: the single pass that builds the region adjacency graph and the per-region statistics together. On a 1000x1000 px CHM with 4900 trees that pass takes **9.7 ms**, against 128 ms for an equivalent written with `numpy.bincount` — a 13x gap, mostly because it does in one pass what numpy needs several for.
+Numba compiles the one place that touches every pixel: the single pass that builds the region adjacency graph and the per-region statistics together. On a 1000 × 1000 px CHM with about 5,000 trees that pass takes **6 to 7 ms** (`examples/readme_numbers.py`, on a laptop).
 
-The grow loop is deliberately *not* compiled. It is driven by a heap and set membership, which Numba does not handle well, and it runs once per tree rather than once per pixel — roughly 0.4 s for 1150 trees. It is not the bottleneck.
+The rest is deliberately *not* compiled. The grow loop is driven by a heap and set membership, which Numba does not handle well, and it runs once per tree rather than once per pixel. On the same scene turning the edges into the weighted graph takes about 0.7 s and the whole of `run_all` about 1 s, so the growing is not the bottleneck; the graph is.
 
-First call in a session pays the JIT compilation cost (~2 s); `cache=True` means later runs read the compiled code from disk.
+First call in a session pays the JIT compilation cost, a few seconds; `cache=True` means later runs read the compiled code from disk.
 
 </details>
 

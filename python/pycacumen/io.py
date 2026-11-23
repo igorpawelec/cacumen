@@ -57,10 +57,13 @@ def read_chm(path, window=None, band=1):
 
     Notes
     -----
-    The raster nodata value is *not* converted to NaN — the growing works
-    on raw values, and a nodata of -9999 would simply fall below any sane
-    ``mask_thresh``. Convert explicitly if your nodata is a plausible
-    height.
+    Cells that hold the raster's nodata value are returned as NaN, as
+    rcacumen's ``read_chm()`` returns them as ``NA``. Smoothing and detection
+    skip NaN and nothing grows over it. Until 0.6.3 the nodata value was
+    returned as it was stored, so a -9999 was read as a height: it stayed
+    out of every crown, but it took part in the smoothing of the cells next
+    to the hole. Only the nodata value counts: a mask band or an alpha band
+    is not consulted, here or in rcacumen.
     """
     rasterio = _ensure_rasterio()
     with rasterio.open(path) as src:
@@ -74,7 +77,14 @@ def read_chm(path, window=None, band=1):
             chm = src.read(band)
             transform = src.transform
         crs = src.crs
-    return chm.astype(np.float32, copy=False), transform, crs
+        nodata = src.nodatavals[band - 1]
+    # Compared as stored, before the cast: an integer raster keeps its
+    # nodata exact that way, and a NaN nodata needs nothing done to it.
+    hole = None if nodata is None or np.isnan(nodata) else chm == nodata
+    chm = chm.astype(np.float32)
+    if hole is not None:
+        chm[hole] = np.nan
+    return chm, transform, crs
 
 
 def _ensure_fiona():

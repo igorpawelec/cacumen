@@ -57,9 +57,10 @@ def smooth_chm(chm, ws=3, method="median"):
 
     Notes
     -----
-    NaNs are not handled specially: scipy's filters propagate them, so a
-    nodata-as-NaN raster will grow its NaN halo by ``ws // 2``. Fill or
-    mask nodata before smoothing if that matters.
+    Cells with no data (NaN) are skipped: a cell takes the statistic of the
+    cells of its window that have data. The cells on the rim of a hole get a
+    height that way, so a hole shrinks by ``ws // 2`` on each side, and a
+    cell whose whole window has no data stays NaN.
     """
     ndimage = _ensure_scipy()
     chm = np.asarray(chm)

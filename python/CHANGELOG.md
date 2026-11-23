@@ -1,6 +1,42 @@
 # Changelog
 
 
+## [0.7.1] — 2026-11-23
+
+### Changed
+- **A CHM with holes is smoothed by a compiled median.** Where the CHM had cells with
+  no data, the median was scipy's `generic_filter` calling numpy's `nanmedian` once per
+  cell: a second or two for 200 × 200 px with a quarter of the cells empty and tens of
+  seconds for 1,000 × 1,000 px. It held the interpreter throughout, so a program that
+  smoothed in a worker thread stood still for that long. The pass is compiled now and
+  lets the interpreter go: milliseconds and a fraction of a second on the same rasters,
+  over a hundred times less (`examples/readme_numbers.py`). The values are the same,
+  in single and in double precision and on rasters narrower than the window
+  (`tests/test_nanmedian.py`), so tops and crowns are what they were. Only the sign of
+  a zero can differ, in a window that holds both 0.0 and -0.0.
+- **The height beside an exported top is the height it was detected at.**
+  `tops_to_vector` wrote `height` from the CHM as given, while a top is found, merged
+  and screened on the smoothed one, and the cell under it is often a hole or a pit that
+  the smoothing filled. With the quick start on `chm_150_2014.tif`, 21 of the 215 tops
+  had no height and one had 0.00 m where the smoothed CHM has 12.98 m, though all of
+  them were kept "from 10 m". `height` is read from the smoothed CHM now, and so meets
+  the thresholds the top passed. The value of the CHM as given is written beside it as
+  `raw_height`, null where the cell has no data. `save_tree_tops` takes `raw_chm` for
+  that field, and writes a height that is not a number as null. Heights are rounded to
+  two decimals in double precision now: 12.35 is written where rounding in the single
+  precision of the CHM left 12.340000152587890. The positions of the tops are
+  unchanged.
+- **The chain warning of `merge_tops` is written for someone who has not read the
+  code.** It speaks of chains of tops and no longer of groups. Every number comes with
+  its unit: chains "longer than 25 px", where "more than 5 times the merge distance"
+  stood beside a distance of "5 px". It points to the spacing of the detected tops and
+  to the detection window, where it named the spacing of the trees: tops are detected
+  closer together than the trees stand, the more so the smaller the window. And it has
+  a sentence of its own for the case when all the tops were merged into one. The text
+  is the same in rcacumen 0.6.1.
+  When the warning is given has not changed.
+
+
 ## [0.7.0] — 2026-11-23
 
 ### Changed

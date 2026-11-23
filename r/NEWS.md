@@ -1,3 +1,18 @@
+# rcacumen 0.6.1
+
+## Changed
+
+* **The chain warning of `merge_tops()` is written for someone who has not read the
+  code.** It speaks of chains of tops and no longer of groups. Every number comes with
+  its unit: chains "longer than 25 px", where "more than 5 times the merge distance"
+  stood beside a distance of "5 px". It points to the spacing of the detected tops and
+  to the detection window, where it named the spacing of the trees: tops are detected
+  closer together than the trees stand, the more so the smaller the window. And it has
+  a sentence of its own for the case when all the tops were merged into one. The text
+  is the same in pycacumen 0.7.1.
+  When the warning is given has not changed, and no result has.
+
+
 # rcacumen 0.6.0
 
 ## Changed

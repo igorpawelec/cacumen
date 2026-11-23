@@ -35,7 +35,8 @@ transitively and each group is replaced by its centroid.
 \details{
 Grouping is transitive: a chain of tops each within \code{distance} of the
 next collapses into one even if the endpoints are far apart. Keep the
-threshold well below the typical crown diameter.
+threshold well below the typical crown diameter, and below the spacing
+of the detected tops, which can stand as close as the detection window.
 
 A centroid is a point between the tops. On a CHM with holes it can fall on
 a cell with no data, and between two crowns it can fall in the gap, on the
@@ -43,7 +44,9 @@ ground. Nothing grows from there, or a crown grows on the ground: the trees
 the group stood for are lost. Given the CHM, such a group is represented by
 the highest of its own tops instead.
 
-A warning is given when groups stretch over more than five times the merge
-distance: those were joined as chains, tree to tree, and the distance is
-too large for the stand.
+A warning is given when a chain longer than five times the merge distance
+was merged into one top: the tops were joined tree to tree, and the
+distance is too large for the stand. It says how many of the tops left
+after merging stand for such a chain and how long the longest is, or that
+all the tops were merged into one.
 }

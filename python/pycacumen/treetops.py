@@ -165,13 +165,17 @@ def merge_tops(tops, distance=5.0, chm=None, hmin=None):
     ground: the trees the group stood for are lost. Given the CHM, such a
     group is represented by the highest of its own tops instead.
 
-    A warning is given when groups stretch over more than five times the
-    merge distance: those were joined as chains, tree to tree, and the
-    distance is too large for the stand.
-
     Note the grouping is transitive: a chain of tops each within
     *distance* of the next collapses into one, even if the endpoints are
-    far apart. Keep the threshold well below the typical crown diameter.
+    far apart. Keep the threshold well below the typical crown diameter,
+    and below the spacing of the detected tops, which can stand as close
+    as the detection window.
+
+    A warning is given when a chain longer than five times the merge
+    distance was merged into one top: the tops were joined tree to tree,
+    and the distance is too large for the stand. It says how many of the
+    tops left after merging stand for such a chain and how long the
+    longest is, or that all the tops were merged into one.
 
     Parameters
     ----------
@@ -245,18 +249,30 @@ def merge_tops(tops, distance=5.0, chm=None, hmin=None):
 
     # Grouping is transitive, so tops a merge distance apart, one after
     # another, become one group however long the row. With a distance near
-    # the spacing of the trees a whole stand folds into a few tops, and
-    # nothing in the result says that it happened.
+    # the spacing of the detected tops a whole stand folds into a few tops,
+    # and nothing in the result says that it happened. The text is read by
+    # people who have not seen this code: it names no groups, gives every
+    # number with its unit, and says it differently when nothing is left
+    # but one top. rcacumen gives the same text.
     spans = np.array([np.hypot(*np.ptp(tops[idx], axis=0)) for idx in members])
     far = spans > CHAIN_FACTOR * distance
     if far.any():
         worst = int(np.argmax(spans))
+        if len(members) == 1:
+            what = (f"merge_tops: all {n} tops were merged into one, a chain "
+                    f"{spans[worst]:.1f} px long. ")
+        else:
+            what = (f"merge_tops: chains of tops longer than {CHAIN_FACTOR * distance:g} px "
+                    f"were merged into single tops ({int(far.sum())} of the {len(members)} "
+                    f"tops left after merging). The longest chain joined "
+                    f"{len(members[worst])} tops over {spans[worst]:.1f} px. ")
         warnings.warn(
-            f"merge_tops: {int(far.sum())} of {len(members)} groups stretch over more than "
-            f"{CHAIN_FACTOR:g} times the merge distance; the longest joins "
-            f"{len(members[worst])} tops over {spans[worst]:.1f} px. Tops merge in chains, "
-            f"each within {distance:g} px of the next, so a distance near the spacing of "
-            "the trees runs neighbouring trees together. Lower the distance.",
+            what +
+            f"Tops are joined one after another, each within the merge distance "
+            f"({distance:g} px) of the next, so a distance near the spacing of the detected "
+            "tops joins them across the stand. Detected tops can stand as close as the "
+            "detection window, closer than the trees. Lower the merge distance or detect "
+            "with a larger window.",
             stacklevel=2)
 
     if chm is not None:

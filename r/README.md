@@ -130,7 +130,7 @@ attr(crowns, "n_contested")
 |---|---|---|
 | `hmin` | 2 | Minimum height (m) for a pixel to be a candidate |
 | `ws` | 3 | Local-maximum window (px) = minimum spacing between tops |
-| `distance` | 5 | Merge radius (px). Grouping is transitive — keep below crown diameter; a warning says when groups stretch over more than five times it |
+| `distance` | 5 | Merge radius (px). Grouping is transitive — keep below crown diameter and below the spacing of the detected tops; a warning says when chains of tops longer than five times it were merged |
 | `chm`, `hmin` | `NULL` | `merge_tops()` only: the CHM and the height the tops were detected above. With them, a group whose centroid falls on a cell with no data, or on one not above `hmin`, is represented by its highest top; `delineate()` passes both |
 
 **Growing** — `grow_crowns`

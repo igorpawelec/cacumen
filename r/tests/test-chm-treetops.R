@@ -224,16 +224,38 @@ caught <- function(expr) {
     msg <<- c(msg, conditionMessage(w)); invokeRestart("muffleWarning") })
   list(value = val, warnings = msg)
 }
+# What follows the first sentences, the same in both cases and, letter for
+# letter, in pycacumen (python/tests/test_merge_on_hole.py holds the same strings).
+advice <- paste0(
+  "Tops are joined one after another, each within the merge distance (5 px) of ",
+  "the next, so a distance near the spacing of the detected tops joins them ",
+  "across the stand. Detected tops can stand as close as the detection window, ",
+  "closer than the trees. Lower the merge distance or detect with a larger ",
+  "window.")
 chain <- cbind(10, 4 * (0:11))               # each 4 px from the next
 got <- caught(merge_tops(chain, 5))
-ok(length(got$warnings) == 1L &&
-   grepl("stretch over more than 5 times the merge distance", got$warnings) &&
-   nrow(got$value) == 1L,
-   "a merge that runs in a chain says so, and the result is what it was")
+ok(length(got$warnings) == 1L && nrow(got$value) == 1L &&
+   identical(got$warnings, paste0(
+     "merge_tops: all 12 tops were merged into one, a chain 44.0 px long. ", advice)),
+   "tops merged all into one are reported as that, and the result is what it was")
 three <- rbind(chain, cbind(60, 4 * (0:7)), c(90, 10), c(90, 13))
 got <- caught(merge_tops(three, 5))
-ok(grepl("2 of 3 groups", got$warnings) && grepl("joins 12 tops over 44.0 px", got$warnings),
-   "the warning counts the groups and names the longest")
+ok(length(got$warnings) == 1L && identical(got$warnings, paste0(
+     "merge_tops: chains of tops longer than 25 px were merged into single tops ",
+     "(2 of the 3 tops left after merging). The longest chain joined 12 tops ",
+     "over 44.0 px. ", advice)),
+   "the warning counts the chains and names the longest")
+# A program that shows the warning cuts the prefix off. What is left has to
+# stand without the code: no "groups", no number without its unit, and no
+# "5 times" beside "5 px".
+wide <- rbind(cbind(10, 2.5 * (0:39)), c(80, 0))
+for (dist in c(3, 7.5)) {
+  got <- caught(merge_tops(wide, dist))
+  ok(startsWith(got$warnings, sprintf("merge_tops: chains of tops longer than %s px ", 5 * dist)) &&
+     grepl(sprintf("merge distance (%s px)", dist), got$warnings, fixed = TRUE) &&
+     !grepl("group|times", got$warnings),
+     sprintf("at %s px the text gives every number with its unit", dist))
+}
 got <- caught(merge_tops(rbind(c(10, 10), c(12, 11), c(11, 13), c(40, 40), c(42, 41)), 5))
 ok(is.null(got$warnings) && nrow(got$value) == 2L, "compact groups are merged in silence")
 

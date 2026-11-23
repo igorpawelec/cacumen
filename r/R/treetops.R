@@ -142,7 +142,8 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #'
 #' Grouping is transitive: a chain of tops each within `distance` of the
 #' next collapses into one even if the endpoints are far apart. Keep the
-#' threshold well below the typical crown diameter.
+#' threshold well below the typical crown diameter, and below the spacing
+#' of the detected tops, which can stand as close as the detection window.
 #'
 #' A centroid is a point between the tops. On a CHM with holes it can fall on
 #' a cell with no data, and between two crowns it can fall in the gap, on the
@@ -150,9 +151,11 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #' the group stood for are lost. Given the CHM, such a group is represented by
 #' the highest of its own tops instead.
 #'
-#' A warning is given when groups stretch over more than five times the merge
-#' distance: those were joined as chains, tree to tree, and the distance is
-#' too large for the stand.
+#' A warning is given when a chain longer than five times the merge distance
+#' was merged into one top: the tops were joined tree to tree, and the
+#' distance is too large for the stand. It says how many of the tops left
+#' after merging stand for such a chain and how long the longest is, or that
+#' all the tops were merged into one.
 #'
 #' @param tops Two-column matrix of (row, col) positions.
 #' @param distance Numeric. Merge radius in pixels.
@@ -199,19 +202,33 @@ merge_tops <- function(tops, distance = 5, chm = NULL, hmin = NULL) {
                as.vector(rowsum(tops[, 2], g, reorder = TRUE)) / as.vector(table(g)))
   # Grouping is transitive, so tops a merge distance apart, one after another,
   # become one group however long the row. With a distance near the spacing of
-  # the trees a whole stand folds into a few tops, and nothing in the result
-  # says that it happened.
+  # the detected tops a whole stand folds into a few tops, and nothing in the
+  # result says that it happened. The text is read by people who have not seen
+  # this code: it names no groups, gives every number with its unit, and says
+  # it differently when nothing is left but one top. pycacumen gives the same
+  # text.
   extent <- function(v) as.vector(tapply(v, g, function(x) max(x) - min(x)))
   spans <- sqrt(extent(tops[, 1])^2 + extent(tops[, 2])^2)
   far <- spans > .CHAIN_FACTOR * distance
   if (any(far)) {
     worst <- which.max(spans)
-    warning(sprintf(paste0(
-      "merge_tops: %d of %d groups stretch over more than %g times the merge ",
-      "distance; the longest joins %d tops over %.1f px. Tops merge in chains, each ",
-      "within %g px of the next, so a distance near the spacing of the trees runs ",
-      "neighbouring trees together. Lower the distance."),
-      sum(far), length(spans), .CHAIN_FACTOR, sum(g == worst), spans[worst], distance),
+    what <- if (length(spans) == 1L) {
+      sprintf("merge_tops: all %d tops were merged into one, a chain %.1f px long. ",
+              n, spans[worst])
+    } else {
+      sprintf(paste0(
+        "merge_tops: chains of tops longer than %g px were merged into single tops ",
+        "(%d of the %d tops left after merging). The longest chain joined %d tops ",
+        "over %.1f px. "),
+        .CHAIN_FACTOR * distance, sum(far), length(spans),
+        sum(g == worst), spans[worst])
+    }
+    warning(what, sprintf(paste0(
+      "Tops are joined one after another, each within the merge distance (%g px) of ",
+      "the next, so a distance near the spacing of the detected tops joins them ",
+      "across the stand. Detected tops can stand as close as the detection window, ",
+      "closer than the trees. Lower the merge distance or detect with a larger ",
+      "window."), distance),
       call. = FALSE)
   }
   if (!is.null(chm)) {

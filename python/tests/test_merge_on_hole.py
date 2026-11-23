@@ -144,20 +144,46 @@ class TestArguments:
 
 class TestChains:
 
-    def test_a_merge_that_runs_in_a_chain_says_so(self):
+    # What follows the first sentences, the same in both cases and, letter for
+    # letter, in rcacumen (r/tests/test-chm-treetops.R holds the same strings).
+    ADVICE = ("Tops are joined one after another, each within the merge distance (5 px) of "
+              "the next, so a distance near the spacing of the detected tops joins them "
+              "across the stand. Detected tops can stand as close as the detection window, "
+              "closer than the trees. Lower the merge distance or detect with a larger "
+              "window.")
+
+    def test_tops_merged_all_into_one_are_reported_as_that(self):
         row = np.array([[10.0, 4.0 * i] for i in range(12)])           # each 4 px from the next
-        with pytest.warns(UserWarning, match="stretch over more than 5 times the merge distance"):
+        with pytest.warns(UserWarning) as record:
             merged = merge_tops(row, distance=5.0)
         assert len(merged) == 1                                         # the result is what it was
+        assert len(record) == 1 and str(record[0].message) == (
+            "merge_tops: all 12 tops were merged into one, a chain 44.0 px long. " + self.ADVICE)
 
-    def test_the_warning_counts_the_groups_and_names_the_longest(self):
+    def test_the_warning_counts_the_chains_and_names_the_longest(self):
         long_row = [[10.0, 4.0 * i] for i in range(12)]                 # 44 px
         short_row = [[60.0, 4.0 * i] for i in range(8)]                 # 28 px
         pair = [[90.0, 10.0], [90.0, 13.0]]
         with pytest.warns(UserWarning) as record:
             merge_tops(np.array(long_row + short_row + pair), distance=5.0)
-        message = str(record[0].message)
-        assert "2 of 3 groups" in message and "joins 12 tops over 44.0 px" in message
+        assert len(record) == 1 and str(record[0].message) == (
+            "merge_tops: chains of tops longer than 25 px were merged into single tops "
+            "(2 of the 3 tops left after merging). The longest chain joined 12 tops "
+            "over 44.0 px. " + self.ADVICE)
+
+    def test_the_text_is_written_for_a_reader_of_the_program_not_of_the_code(self):
+        """A program that shows the warning cuts the prefix off. What is left has to
+        stand without the code: no \"groups\", no number without its unit, and no
+        \"5 times\" beside \"5 px\"."""
+        row = np.array([[10.0, 2.5 * i] for i in range(40)])
+        for distance in (3.0, 7.5):
+            with pytest.warns(UserWarning) as record:
+                merge_tops(np.vstack([row, [[80.0, 0.0]]]), distance=distance)
+            message = str(record[0].message)
+            assert message.startswith("merge_tops: chains of tops longer than "
+                                      f"{5 * distance:g} px ")
+            assert f"merge distance ({distance:g} px)" in message
+            assert "group" not in message and "times" not in message
 
     def test_compact_groups_are_merged_in_silence(self):
         tops = np.array([[10.0, 10.0], [12.0, 11.0], [11.0, 13.0], [40.0, 40.0], [42.0, 41.0]])

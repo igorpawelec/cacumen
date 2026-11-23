@@ -114,7 +114,7 @@ def test_max_height_is_the_highest_cell_under_the_crown(delineated, tmp_path):
         got = {f["properties"]["id"]: f["properties"]["max_height"] for f in src}
     crowns, chm = delineated.crowns, delineated.chm
     assert int((np.isnan(chm) & (crowns > 0)).sum()) > 0        # the tile does have such cells
-    assert len(got) == 212
+    assert len(got) == len(np.unique(crowns[crowns > 0]))
     wholly_on_holes = 0
     for crown_id, height in got.items():
         assert height is not None and np.isfinite(height), crown_id

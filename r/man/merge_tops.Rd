@@ -4,7 +4,7 @@
 \alias{merge_tops}
 \title{Merge tree tops that lie close together}
 \usage{
-merge_tops(tops, distance = 5, chm = NULL)
+merge_tops(tops, distance = 5, chm = NULL, hmin = NULL)
 }
 \arguments{
 \item{tops}{Two-column matrix of (row, col) positions.}
@@ -16,6 +16,11 @@ With it, a group whose centroid falls on a cell with no data (\code{NA}) or
 outside the raster is replaced by the highest of its tops (the first of
 them when several are equally high). Without it every group is replaced
 by its centroid, wherever that falls.}
+
+\item{hmin}{Optional number, the height the tops were detected above. With
+it and the CHM, a group whose centroid stands on a cell that is not above
+\code{hmin}, where no top could have been detected, is replaced by its highest
+top as well.}
 }
 \value{
 A two-column matrix with at most as many rows as \code{tops}. The
@@ -32,8 +37,13 @@ Grouping is transitive: a chain of tops each within \code{distance} of the
 next collapses into one even if the endpoints are far apart. Keep the
 threshold well below the typical crown diameter.
 
-A centroid is a point between the tops, and on a CHM with holes it can
-fall on a cell with no data. Nothing grows from there: the tops it stood
-for would leave no crown at all. Given the CHM, such a group is
-represented by the highest of its own tops instead.
+A centroid is a point between the tops. On a CHM with holes it can fall on
+a cell with no data, and between two crowns it can fall in the gap, on the
+ground. Nothing grows from there, or a crown grows on the ground: the trees
+the group stood for are lost. Given the CHM, such a group is represented by
+the highest of its own tops instead.
+
+A warning is given when groups stretch over more than five times the merge
+distance: those were joined as chains, tree to tree, and the distance is
+too large for the stand.
 }

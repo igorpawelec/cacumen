@@ -115,10 +115,27 @@ class TestScreenTops:
 
 class TestAsPixels:
 
-    def test_floors_to_int(self):
+    def test_a_top_goes_to_the_nearest_cell(self):
+        """Whole numbers are the centres of the cells. Until 0.7.0 the
+        coordinate was cut down, and (3.7, 4.2) went to cell (3, 4)."""
         px = as_pixels(np.array([[3.7, 4.2]]))
-        assert px == [(3, 4)]
+        assert px == [(4, 4)]
         assert all(isinstance(v, int) for v in px[0])
+        assert as_pixels([[186.67, 48.67], [0.49, 0.0], [2.0, 7.0]]) == [(187, 49), (0, 0), (2, 7)]
+        assert as_pixels([[0.5, 1.5], [2.5, 3.5]]) == [(1, 2), (3, 4)]     # a half goes up
+
+    def test_the_last_bit_of_a_plateau_centre_does_not_choose_the_cell(self):
+        """A plateau two cells long has its centre on the boundary between them. The
+        weighted mean that finds it gives 40.5 or 40.49999999999999 according to the
+        order of the sums, and without a margin rcacumen and pycacumen seeded
+        different cells on a double-precision CHM."""
+        for height, first in ((12.3, 40), (7.7, 6), (0.1 + 0.2, 10)):
+            chm = np.zeros((60, 20))
+            chm[first:first + 2, 4] = height
+            tops = detect_tops(chm, hmin=0.05, ws=3)
+            assert len(tops) == 1 and abs(tops[0, 0] - (first + 0.5)) < 1e-9
+            assert as_pixels(tops) == [(first + 1, 4)]
+        assert as_pixels([[40.5 - 1e-9, 2.0], [40.5 - 1e-3, 2.0]]) == [(41, 2), (40, 2)]
 
     def test_empty(self):
         assert as_pixels(np.empty((0, 2))) == []

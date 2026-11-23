@@ -21,6 +21,8 @@ Copyright (C) 2025 Igor Pawelec
 Licence: GPLv3 — see LICENSE.
 """
 
+import warnings
+
 import numpy as np
 
 __all__ = ["detect_tops", "merge_tops", "screen_tops", "as_pixels"]
@@ -109,10 +111,38 @@ def detect_tops(chm, hmin=2.0, ws=3):
     return _as_tops_array(centres)
 
 
+# A merged group that stretches over more than this many merge distances was
+# joined as a chain, tree to tree, and merge_tops says so.
+CHAIN_FACTOR = 5.0
+
+# How close to the boundary between two cells a top counts as on it (see _cells).
+_HALF_MARGIN = 1e-6
+
+
+def _cells(tops):
+    """The cell each top stands on, as an (n, 2) integer array.
+
+    A top is a position in array coordinates, where whole numbers are the
+    centres of the cells, so the cell under it is the nearest one: 186.67
+    stands in cell 187. Until 0.7.0 the coordinate was cut down, to 186,
+    which put the seed of a plateau one cell up or left of its centre for
+    nearly half of the tops, and now and then on the ground beside the
+    crown.
+
+    A half goes up, the same way in rcacumen, and so does anything within
+    a millionth of a pixel of a half. The centre of a plateau two cells
+    long is a half exactly, but it is computed as a weighted mean, and
+    comes out as 40.5 or as 40.49999999999999 according to the order of
+    the sums: without the margin the last bit chose the cell, and chose
+    differently in the two packages.
+    """
+    return np.floor(np.asarray(tops, dtype=float) + (0.5 + _HALF_MARGIN)).astype(np.intp)
+
+
 def _heights_at(chm, tops):
     """CHM value under each top; NaN for a top outside the raster or on no data."""
     rows, cols = chm.shape
-    rc = np.floor(tops).astype(np.intp)
+    rc = _cells(tops)
     inside = ((rc[:, 0] >= 0) & (rc[:, 0] < rows) &
               (rc[:, 1] >= 0) & (rc[:, 1] < cols))
     h = np.full(len(tops), np.nan)
@@ -120,7 +150,7 @@ def _heights_at(chm, tops):
     return h
 
 
-def merge_tops(tops, distance=5.0, chm=None):
+def merge_tops(tops, distance=5.0, chm=None, hmin=None):
     """
     Merge tree tops that lie within *distance* of each other.
 
@@ -129,10 +159,15 @@ def merge_tops(tops, distance=5.0, chm=None):
     with a k-d tree, grouped transitively with union-find, and each group
     is replaced by its centroid.
 
-    A centroid is a point between the tops, and on a CHM with holes it can
-    fall on a cell with no data. Nothing grows from there: the tops it
-    stood for would leave no crown at all. Given the CHM, such a group is
-    represented by the highest of its own tops instead.
+    A centroid is a point between the tops. On a CHM with holes it can fall
+    on a cell with no data, and between two crowns it can fall in the gap,
+    on the ground. Nothing grows from there, or a crown grows on the
+    ground: the trees the group stood for are lost. Given the CHM, such a
+    group is represented by the highest of its own tops instead.
+
+    A warning is given when groups stretch over more than five times the
+    merge distance: those were joined as chains, tree to tree, and the
+    distance is too large for the stand.
 
     Note the grouping is transitive: a chain of tops each within
     *distance* of the next collapses into one, even if the endpoints are
@@ -150,6 +185,11 @@ def merge_tops(tops, distance=5.0, chm=None):
         by the highest of its tops (the first of them when several are
         equally high). Without it every group is replaced by its centroid,
         wherever that falls.
+    hmin : float, optional
+        The height the tops were detected above. With it and the CHM, a
+        group whose centroid stands on a cell that is not above *hmin*,
+        where no top could have been detected, is replaced by its highest
+        top as well.
 
     Returns
     -------
@@ -165,6 +205,10 @@ def merge_tops(tops, distance=5.0, chm=None):
             "  conda install -c conda-forge scipy"
         ) from e
 
+    if not (np.isfinite(distance) and distance >= 0):
+        raise ValueError(f"distance must be a number, zero or more, got {distance!r}")
+    if hmin is not None and not np.isfinite(hmin):
+        raise ValueError(f"hmin must be a number, got {hmin!r}")
     tops = _as_tops_array(tops)
     if tops.shape[0] < 2:
         return tops
@@ -198,10 +242,33 @@ def merge_tops(tops, distance=5.0, chm=None):
 
     members = list(groups.values())
     merged = _as_tops_array([tops[idx].mean(axis=0) for idx in members])
+
+    # Grouping is transitive, so tops a merge distance apart, one after
+    # another, become one group however long the row. With a distance near
+    # the spacing of the trees a whole stand folds into a few tops, and
+    # nothing in the result says that it happened.
+    spans = np.array([np.hypot(*np.ptp(tops[idx], axis=0)) for idx in members])
+    far = spans > CHAIN_FACTOR * distance
+    if far.any():
+        worst = int(np.argmax(spans))
+        warnings.warn(
+            f"merge_tops: {int(far.sum())} of {len(members)} groups stretch over more than "
+            f"{CHAIN_FACTOR:g} times the merge distance; the longest joins "
+            f"{len(members[worst])} tops over {spans[worst]:.1f} px. Tops merge in chains, "
+            f"each within {distance:g} px of the next, so a distance near the spacing of "
+            "the trees runs neighbouring trees together. Lower the distance.",
+            stacklevel=2)
+
     if chm is not None:
         chm = np.asarray(chm)
         h_tops = _heights_at(chm, tops)
-        for g in np.flatnonzero(np.isnan(_heights_at(chm, merged))):
+        h_merged = _heights_at(chm, merged)
+        lost = np.isnan(h_merged)
+        if hmin is not None:
+            # not above hmin: where detect_tops could not have put a top
+            with np.errstate(invalid="ignore"):
+                lost |= ~(h_merged > hmin)
+        for g in np.flatnonzero(lost):
             h = h_tops[members[g]]
             if len(h) > 1 and not np.isnan(h).all():
                 merged[g] = tops[members[g][int(np.nanargmax(h))]]
@@ -234,7 +301,7 @@ def screen_tops(chm, tops, hmin):
         return tops
 
     rows, cols = chm.shape
-    rc = np.floor(tops).astype(np.intp)
+    rc = _cells(tops)
     inside = ((rc[:, 0] >= 0) & (rc[:, 0] < rows) &
               (rc[:, 1] >= 0) & (rc[:, 1] < cols))
     keep = np.zeros(len(tops), dtype=bool)
@@ -246,10 +313,13 @@ def as_pixels(tops):
     """
     Convert subpixel tops to integer (row, col) pixel indices.
 
+    Each top goes to the cell it stands on, the nearest one: whole numbers
+    are the centres of the cells, and a half goes up.
+
     Returns
     -------
     pixels : list of (int, int)
         Suitable for :meth:`pycacumen.hrg.HierarchicalRegionGrower.run_all`.
     """
     tops = _as_tops_array(tops)
-    return [(int(r), int(c)) for r, c in np.floor(tops)]
+    return [(int(r), int(c)) for r, c in _cells(tops)]

@@ -108,7 +108,7 @@ grow_crowns <- function(chm, tops,
          call. = FALSE)
 
   nr <- nrow(chm); nc <- ncol(chm)
-  tops <- matrix(as.integer(tops), ncol = 2)
+  tops <- as_pixels(tops)                 # whole numbers pass through; the rest go to their cell
   if (nrow(tops) > 0L &&
       any(tops[, 1] < 1L | tops[, 1] > nr | tops[, 2] < 1L | tops[, 2] > nc))
     stop("a tree top lies outside the CHM (", nr, "x", nc, ")", call. = FALSE)

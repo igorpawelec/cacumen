@@ -13,5 +13,6 @@ as_pixels(tops)
 An integer two-column matrix suitable for \code{\link[=grow_crowns]{grow_crowns()}}.
 }
 \description{
-Convert subpixel tops to integer pixel positions
+Each top goes to the cell it stands on, the nearest one: whole numbers are
+the centres of the cells, and a half goes up.
 }

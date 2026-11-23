@@ -121,15 +121,22 @@ class CrownDelineator:
         if self.smoothed is None:
             self.smooth(ws=3)
         self.tops = detect_tops(self.smoothed, hmin=hmin, ws=ws)
+        self._detect_hmin = hmin
         self._say(f"detect: {len(self.tops)} tops (hmin={hmin}, ws={ws})")
         return self
 
     def merge(self, distance=5.0):
-        """Merge nearby tops. See :func:`pycacumen.treetops.merge_tops`. Returns self."""
+        """Merge nearby tops. See :func:`pycacumen.treetops.merge_tops`. Returns self.
+
+        The smoothed CHM and the ``hmin`` of the last :meth:`detect` go with
+        the call, so that a group whose centroid falls on a hole or on the
+        ground keeps its highest top.
+        """
         if self.tops is None:
             raise ValueError("call detect() before merge()")
         before = len(self.tops)
-        self.tops = merge_tops(self.tops, distance=distance, chm=self.smoothed)
+        self.tops = merge_tops(self.tops, distance=distance, chm=self.smoothed,
+                               hmin=getattr(self, "_detect_hmin", None))
         self._say(f"merge: {before} -> {len(self.tops)} (distance={distance})")
         return self
 

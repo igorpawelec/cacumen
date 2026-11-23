@@ -62,7 +62,7 @@ delineate <- function(chm,
   say(sprintf("detect: %d tops (hmin=%s, ws=%d)", nrow(tops), hmin, detect_ws))
 
   if (!is.null(merge_distance)) {
-    n0 <- nrow(tops); tops <- merge_tops(tops, merge_distance, chm = sm)
+    n0 <- nrow(tops); tops <- merge_tops(tops, merge_distance, chm = sm, hmin = hmin)
     say(sprintf("merge: %d -> %d (distance=%s)", n0, nrow(tops), merge_distance))
   }
   if (!is.null(screen_hmin)) {

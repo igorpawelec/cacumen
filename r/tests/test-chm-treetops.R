@@ -74,12 +74,31 @@ res <- delineate(gap, smooth_ws = 1, hmin = 5, detect_ws = 5,
                  merge_distance = 8, screen_hmin = 10, quiet = TRUE)
 ok(!anyNA(res$tops), "delineate() keeps no NA top when a merged top falls in a hole")
 ok(nrow(res$tops) == 1 &&
-   !is.na(gap[floor(res$tops[1, 1]), floor(res$tops[1, 2])]) &&
+   !is.na(gap[as_pixels(res$tops)]) &&
    sum(res$crowns > 0) > 0,
    "the group whose centroid falls in the hole keeps a top and a crown")
 
 cat("as_pixels\n")
-ok(all(as_pixels(rbind(c(3.7, 4.2))) == c(3L, 4L)), "floors to integers")
+# Whole numbers are the centres of the cells. Until 0.6.0 the coordinate was
+# cut down, and (3.7, 4.2) went to cell (3, 4).
+ok(all(as_pixels(rbind(c(3.7, 4.2))) == c(4L, 4L)), "a top goes to the nearest cell")
+ok(all(as_pixels(rbind(c(187.67, 49.67), c(1.49, 1), c(3, 8))) ==
+       rbind(c(188L, 50L), c(1L, 1L), c(3L, 8L))), "nearest cell, more cases")
+ok(all(as_pixels(rbind(c(1.5, 2.5), c(3.5, 4.5))) == rbind(c(2L, 3L), c(4L, 5L))),
+   "a half goes up")
+# A plateau two cells long has its centre on the boundary between them. The
+# weighted mean that finds it gives 41.5 or 41.49999999999999 according to the
+# order of the sums, and without a margin the two packages seeded different
+# cells on a double-precision CHM. The same cases as in pycacumen's tests.
+for (case in list(c(12.3, 41), c(7.7, 7), c(0.1 + 0.2, 11))) {
+  pm <- matrix(0, 60, 20); pm[case[2] + 0:1, 5] <- case[1]
+  pt <- detect_tops(pm, hmin = 0.05, ws = 3)
+  ok(nrow(pt) == 1L && abs(pt[1, 1] - (case[2] + 0.5)) < 1e-9 &&
+     all(as_pixels(pt) == c(case[2] + 1, 5)),
+     sprintf("a plateau of two cells at %.1f m is seeded on its second cell", case[1]))
+}
+ok(all(as_pixels(rbind(c(41.5 - 1e-9, 3), c(41.5 - 1e-3, 3))) == rbind(c(42L, 3L), c(41L, 3L))),
+   "the margin is a millionth of a pixel, no more")
 ok(is.integer(as_pixels(rbind(c(3.7, 4.2)))), "returns integers")
 
 
@@ -120,47 +139,103 @@ ok(nrow(detect_tops(sc, hmin = 5, ws = 5L)) ==
 
 cat("a merged top on a hole\n")
 
-# Two crowns six cells apart with a hole between them, wide enough to
-# outlast the smoothing, which fills the cells on a hole's rim. The
-# centroid of their two tops falls on the hole.
-hole_scene <- function(n = 41L) {
+# Two crowns on one row, the right-hand one the taller. With a hole, a block
+# of no data between them, wide enough to outlast the smoothing, which fills
+# the cells on a hole's rim. The same scenes as python/tests/test_merge_on_hole.py,
+# one row and one column further on, because R counts from 1.
+two_crowns <- function(n = 41L, left = 18, right = 24, hole = TRUE) {
   rr <- matrix(seq_len(n), n, n); cc <- t(rr)
   m <- matrix(0, n, n)
-  for (p in list(c(21, 18, 22), c(21, 24, 26)))
+  for (p in list(c(21, left, 22), c(21, right, 26)))
     m <- pmax(m, p[3] * exp(-((rr - p[1])^2 + (cc - p[2])^2) / (2 * 2.5^2)))
-  m[19:23, 20:22] <- NA
+  if (hole) m[19:23, 20:22] <- NA
   m
 }
-hs <- hole_scene()
-two <- rbind(c(21.5, 18.5), c(21.5, 24.5))
+hs <- two_crowns()
+two <- rbind(c(21, 18), c(21, 24))           # whole numbers: the centres of two cells
 ok(is.na(hs[21, 21]), "the centroid of the two tops falls on no data")
-ok(isTRUE(all.equal(merge_tops(two, 7), rbind(c(21.5, 21.5)))),
+ok(isTRUE(all.equal(merge_tops(two, 7), rbind(c(21, 21)))),
    "without the CHM the centroid stands wherever it falls")
-ok(isTRUE(all.equal(merge_tops(two, 7, chm = hs), rbind(c(21.5, 24.5)))),
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = hs), rbind(c(21, 24)))),
    "with the CHM the highest top stands in for a centroid on no data")
 ok(nrow(screen_tops(hs, merge_tops(two, 7, chm = hs), 10)) == 1L &&
    nrow(screen_tops(hs, merge_tops(two, 7), 10)) == 0L,
    "and survives the screening that drops the centroid")
 tie <- hs; tie[21, 18] <- tie[21, 24] <- 30
-ok(isTRUE(all.equal(merge_tops(two, 7, chm = tie), rbind(c(21.5, 18.5)))) &&
-   isTRUE(all.equal(merge_tops(two[2:1, ], 7, chm = tie), rbind(c(21.5, 24.5)))),
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = tie), rbind(c(21, 18)))) &&
+   isTRUE(all.equal(merge_tops(two[2:1, ], 7, chm = tie), rbind(c(21, 24)))),
    "equally high tops give the first of them")
 filled <- hs; filled[19:23, 21] <- 5
-ok(isTRUE(all.equal(merge_tops(two, 7, chm = filled), rbind(c(21.5, 21.5)))),
+ok(isTRUE(all.equal(merge_tops(two, 7, chm = filled), rbind(c(21, 21)))),
    "a centroid on data is left alone")
-five <- rbind(c(6.5, 6.5), c(21.5, 18.5), c(7.5, 6.5), c(21.5, 24.5), c(36.5, 36.5))
+five <- rbind(c(6, 6), c(21, 18), c(7, 6), c(21, 24), c(36, 36))
 plain <- merge_tops(five, 7); aware <- merge_tops(five, 7, chm = hs)
 moved <- rowSums(plain != aware) > 0
 ok(nrow(plain) == 3L && nrow(aware) == 3L && sum(moved) == 1L &&
-   isTRUE(all.equal(aware[moved, ], c(21.5, 24.5))),
+   isTRUE(all.equal(aware[moved, ], c(21, 24))),
    "groups that are not affected keep their place and order")
-ok(isTRUE(all.equal(merge_tops(rbind(c(10.5, 3.5), c(13.5, 3.5)), 5,
-                               chm = matrix(20, 10, 10)), rbind(c(10.5, 3.5)))),
+ok(isTRUE(all.equal(merge_tops(rbind(c(10, 3), c(13, 3)), 5,
+                               chm = matrix(20, 10, 10)), rbind(c(10, 3)))),
    "a centroid outside the raster counts as no data")
 res <- delineate(hs, smooth_ws = 3, hmin = 5, detect_ws = 3, merge_distance = 7,
                  screen_hmin = 10, variance_thresh = 50, mask_thresh = 1, quiet = TRUE)
 ok(nrow(res$tops) == 1L && res$tops[1, 2] > 22 && sum(res$crowns > 0) > 20,
    "delineate() keeps a crown for the group, grown from the taller tree")
+
+cat("a merged top in a gap\n")
+
+# Two crowns far enough apart to leave ground between them: the centroid of
+# their tops stands on that ground, where no top could have been detected.
+gs <- two_crowns(left = 13, right = 29, hole = FALSE)
+far2 <- rbind(c(21, 13), c(21, 29))
+ok(gs[21, 21] < 0.5, "the gap is ground")
+ok(isTRUE(all.equal(merge_tops(far2, 17, chm = gs), rbind(c(21, 21)))),
+   "without hmin the centroid stays on the ground")
+ok(isTRUE(all.equal(merge_tops(far2, 17, chm = gs, hmin = 5), rbind(c(21, 29)))),
+   "with hmin the highest top stands in")
+saddle <- two_crowns(left = 19, right = 23, hole = FALSE)
+ok(saddle[21, 21] > 5 &&
+   isTRUE(all.equal(merge_tops(rbind(c(21, 19), c(21, 23)), 5, chm = saddle, hmin = 5),
+                    rbind(c(21, 21)))),
+   "a centroid above hmin is left alone")
+edge <- gs; edge[21, 21] <- 5
+at <- merge_tops(far2, 17, chm = edge, hmin = 5)
+edge[21, 21] <- 5.5
+above <- merge_tops(far2, 17, chm = edge, hmin = 5)
+ok(isTRUE(all.equal(at, rbind(c(21, 29)))) && isTRUE(all.equal(above, rbind(c(21, 21)))),
+   "hmin is the threshold of detection itself: at it is not above it")
+res <- delineate(gs, smooth_ws = 3, hmin = 5, detect_ws = 3, merge_distance = 17,
+                 variance_thresh = 50, mask_thresh = 1, quiet = TRUE)
+ok(nrow(res$tops) == 1L && res$tops[1, 2] > 21,
+   "delineate() passes the threshold it detected with")
+
+bad <- function(expr) inherits(try(expr, silent = TRUE), "try-error")
+ok(bad(merge_tops(rbind(c(1, 1), c(1, 3)), -2)) && bad(merge_tops(rbind(c(1, 1), c(1, 3)), NA)) &&
+   bad(merge_tops(rbind(c(1, 1), c(1, 3)), Inf)) && nrow(merge_tops(rbind(c(1, 1), c(1, 3)), 0)) == 2L,
+   "a distance that means nothing is refused; zero merges nothing")
+ok(bad(merge_tops(rbind(c(1, 1), c(1, 3)), 3, chm = matrix(1, 5, 5), hmin = NA)),
+   "an hmin that is not a number is refused")
+
+cat("chains\n")
+
+caught <- function(expr) {
+  msg <- NULL
+  val <- withCallingHandlers(expr, warning = function(w) {
+    msg <<- c(msg, conditionMessage(w)); invokeRestart("muffleWarning") })
+  list(value = val, warnings = msg)
+}
+chain <- cbind(10, 4 * (0:11))               # each 4 px from the next
+got <- caught(merge_tops(chain, 5))
+ok(length(got$warnings) == 1L &&
+   grepl("stretch over more than 5 times the merge distance", got$warnings) &&
+   nrow(got$value) == 1L,
+   "a merge that runs in a chain says so, and the result is what it was")
+three <- rbind(chain, cbind(60, 4 * (0:7)), c(90, 10), c(90, 13))
+got <- caught(merge_tops(three, 5))
+ok(grepl("2 of 3 groups", got$warnings) && grepl("joins 12 tops over 44.0 px", got$warnings),
+   "the warning counts the groups and names the longest")
+got <- caught(merge_tops(rbind(c(10, 10), c(12, 11), c(11, 13), c(40, 40), c(42, 41)), 5))
+ok(is.null(got$warnings) && nrow(got$value) == 2L, "compact groups are merged in silence")
 
 cat("rasters narrower than the window\n")
 

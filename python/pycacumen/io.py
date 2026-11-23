@@ -325,8 +325,10 @@ def save_tree_tops(corrected_tops: np.ndarray,
     }
 
     coords = np.array(corrected_tops, dtype=float)
-    rows = coords[:, 0].astype(int)
-    cols = coords[:, 1].astype(int)
+    # the cell the top stands on: the nearest one, as everywhere else
+    from .treetops import _cells
+    cells = _cells(coords.reshape(-1, 2))
+    rows, cols = cells[:, 0], cells[:, 1]
     heights = chm[rows, cols]
     heights = np.round(heights, 2)
 

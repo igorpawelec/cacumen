@@ -82,6 +82,26 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 
 .empty_tops <- function() matrix(numeric(0), nrow = 0, ncol = 2)
 
+# The cell each top stands on. A top is a position in array coordinates, where
+# whole numbers are the centres of the cells, so the cell under it is the
+# nearest one: 187.67 stands in cell 188. Until 0.6.0 the coordinate was cut
+# down, to 187, which put the seed of a plateau one cell up or left of its
+# centre for nearly half of the tops, and now and then on the ground beside
+# the crown.
+#
+# A half goes up, the same way in pycacumen, and so does anything within a
+# millionth of a pixel of a half. The centre of a plateau two cells long is a
+# half exactly, but it is computed as a weighted mean, and comes out as 41.5
+# or as 41.49999999999999 according to the order of the sums: without the
+# margin the last bit chose the cell, and chose differently in the two
+# packages.
+.HALF_MARGIN <- 1e-6
+.cells <- function(tops) floor(tops + (0.5 + .HALF_MARGIN))
+
+# A merged group that stretches over more than this many merge distances was
+# joined as a chain, tree to tree, and merge_tops() says so.
+.CHAIN_FACTOR <- 5
+
 .as_tops <- function(x) {
   if (is.null(x) || length(x) == 0L) return(.empty_tops())
   m <- matrix(as.double(as.matrix(x)), ncol = 2)
@@ -124,10 +144,15 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #' next collapses into one even if the endpoints are far apart. Keep the
 #' threshold well below the typical crown diameter.
 #'
-#' A centroid is a point between the tops, and on a CHM with holes it can
-#' fall on a cell with no data. Nothing grows from there: the tops it stood
-#' for would leave no crown at all. Given the CHM, such a group is
-#' represented by the highest of its own tops instead.
+#' A centroid is a point between the tops. On a CHM with holes it can fall on
+#' a cell with no data, and between two crowns it can fall in the gap, on the
+#' ground. Nothing grows from there, or a crown grows on the ground: the trees
+#' the group stood for are lost. Given the CHM, such a group is represented by
+#' the highest of its own tops instead.
+#'
+#' A warning is given when groups stretch over more than five times the merge
+#' distance: those were joined as chains, tree to tree, and the distance is
+#' too large for the stand.
 #'
 #' @param tops Two-column matrix of (row, col) positions.
 #' @param distance Numeric. Merge radius in pixels.
@@ -136,12 +161,20 @@ detect_tops <- function(chm, hmin = 2, ws = 3L) {
 #'   outside the raster is replaced by the highest of its tops (the first of
 #'   them when several are equally high). Without it every group is replaced
 #'   by its centroid, wherever that falls.
+#' @param hmin Optional number, the height the tops were detected above. With
+#'   it and the CHM, a group whose centroid stands on a cell that is not above
+#'   `hmin`, where no top could have been detected, is replaced by its highest
+#'   top as well.
 #'
 #' @return A two-column matrix with at most as many rows as `tops`. The
 #'   groups come in the order of their first member in `tops`, as pycacumen
 #'   returns them.
 #' @export
-merge_tops <- function(tops, distance = 5, chm = NULL) {
+merge_tops <- function(tops, distance = 5, chm = NULL, hmin = NULL) {
+  if (!is.numeric(distance) || length(distance) != 1L || !is.finite(distance) || distance < 0)
+    stop("distance must be a single number, zero or more", call. = FALSE)
+  if (!is.null(hmin) && (!is.numeric(hmin) || length(hmin) != 1L || !is.finite(hmin)))
+    stop("hmin must be a single number", call. = FALSE)
   tops <- .as_tops(tops)
   n <- nrow(tops)
   if (n < 2L) return(tops)
@@ -164,10 +197,31 @@ merge_tops <- function(tops, distance = 5, chm = NULL) {
   g <- match(g, unique(g))
   out <- cbind(as.vector(rowsum(tops[, 1], g, reorder = TRUE)) / as.vector(table(g)),
                as.vector(rowsum(tops[, 2], g, reorder = TRUE)) / as.vector(table(g)))
+  # Grouping is transitive, so tops a merge distance apart, one after another,
+  # become one group however long the row. With a distance near the spacing of
+  # the trees a whole stand folds into a few tops, and nothing in the result
+  # says that it happened.
+  extent <- function(v) as.vector(tapply(v, g, function(x) max(x) - min(x)))
+  spans <- sqrt(extent(tops[, 1])^2 + extent(tops[, 2])^2)
+  far <- spans > .CHAIN_FACTOR * distance
+  if (any(far)) {
+    worst <- which.max(spans)
+    warning(sprintf(paste0(
+      "merge_tops: %d of %d groups stretch over more than %g times the merge ",
+      "distance; the longest joins %d tops over %.1f px. Tops merge in chains, each ",
+      "within %g px of the next, so a distance near the spacing of the trees runs ",
+      "neighbouring trees together. Lower the distance."),
+      sum(far), length(spans), .CHAIN_FACTOR, sum(g == worst), spans[worst], distance),
+      call. = FALSE)
+  }
   if (!is.null(chm)) {
     chm <- as.matrix(chm)
     h_tops <- .height_at(chm, tops)
-    for (k in which(is.na(.height_at(chm, out)))) {
+    h_out <- .height_at(chm, out)
+    lost <- is.na(h_out)
+    # not above hmin: where detect_tops() could not have put a top
+    if (!is.null(hmin)) lost <- lost | !(h_out > hmin)
+    for (k in which(lost)) {
       idx <- which(g == k)              # rowsum(reorder = TRUE) keeps 1, 2, ...
       if (length(idx) > 1L && any(!is.na(h_tops[idx])))
         out[k, ] <- tops[idx[which.max(h_tops[idx])], ]
@@ -178,7 +232,7 @@ merge_tops <- function(tops, distance = 5, chm = NULL) {
 
 # CHM value under each top; NA for a top outside the raster or on no data.
 .height_at <- function(chm, tops) {
-  rc <- floor(tops)
+  rc <- .cells(tops)
   inside <- rc[, 1] >= 1 & rc[, 1] <= nrow(chm) & rc[, 2] >= 1 & rc[, 2] <= ncol(chm)
   inside[is.na(inside)] <- FALSE
   h <- rep(NA_real_, nrow(tops))
@@ -206,7 +260,7 @@ screen_tops <- function(chm, tops, hmin) {
   if (!is.numeric(hmin) || length(hmin) != 1L || is.na(hmin))
     stop("hmin must be a single number", call. = FALSE)
   if (nrow(tops) == 0L) return(tops)
-  rc <- floor(tops)
+  rc <- .cells(tops)
   inside <- rc[, 1] >= 1 & rc[, 1] <= nrow(chm) & rc[, 2] >= 1 & rc[, 2] <= ncol(chm)
   inside[is.na(inside)] <- FALSE      # a top with an NA coordinate is nowhere
   keep <- rep(FALSE, nrow(tops))
@@ -224,10 +278,13 @@ screen_tops <- function(chm, tops, hmin) {
 
 #' Convert subpixel tops to integer pixel positions
 #'
+#' Each top goes to the cell it stands on, the nearest one: whole numbers are
+#' the centres of the cells, and a half goes up.
+#'
 #' @param tops Two-column matrix of (row, col) positions.
 #' @return An integer two-column matrix suitable for [grow_crowns()].
 #' @export
 as_pixels <- function(tops) {
   tops <- .as_tops(tops)
-  matrix(as.integer(floor(tops)), ncol = 2)
+  matrix(as.integer(.cells(tops)), ncol = 2)
 }

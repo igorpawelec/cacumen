@@ -14,7 +14,6 @@
 SEXP C_rag(SEXP s_labels, SEXP s_chm, SEXP s_nr, SEXP s_nc, SEXP s_nreg) {
     const int nr = asInteger(s_nr), nc = asInteger(s_nc);
     const int nreg = asInteger(s_nreg);
-    const R_xlen_t n = (R_xlen_t) nr * nc;
     const int *lab = INTEGER(s_labels);
     const double *chm = REAL(s_chm);
 

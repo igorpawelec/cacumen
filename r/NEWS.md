@@ -1,3 +1,30 @@
+# rcacumen 0.5.3
+
+## Changed
+
+* **Tops come in the order pycacumen lists them, and so do the crown ids.**
+  `detect_tops()` listed the tops in the order its labelling met them, column
+  by column, and `merge_tops()` listed the groups by an internal id; pycacumen
+  reads the raster row by row and lists a group where its first member stood.
+  The tops were the same and their order was not, and a crown id is the row
+  number of its top: crown 7 of one package was another tree in the other.
+  Both functions follow pycacumen's order now, so the same CHM gives the same
+  ids in both packages wherever the crowns agree. On the seven tiles of
+  `test_data` the crowns themselves are unchanged, pixel for pixel; only their
+  numbers differ from 0.5.2. A crown can change where two tops tie exactly:
+  a region claimed by two equally tall trees under `conflict_rule = "height"`,
+  or a merged group on a hole with two equally high tops, goes to the top that
+  comes first, and that is now the one it goes to in pycacumen.
+
+## Fixed
+
+* **`detect_tops()` and `smooth_chm()` stopped with "subscript out of bounds"
+  on a raster narrower than half the window**, a single row or column with
+  `ws = 5` for one. The reflected padding now folds as often as it has to, as
+  scipy's does, and the results on such rasters are pycacumen's.
+* An unused variable in `src/rag.c`.
+
+
 # rcacumen 0.5.2
 
 ## Fixed
